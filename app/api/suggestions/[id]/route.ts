@@ -312,14 +312,21 @@ export async function PUT(req: NextRequest, context: { params: any }) {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      // Same quota check as POST, except the draft being finalized is
-      // excluded from its own count: it already exists as a document from
-      // an earlier createdAt, so counting it here would double-count it
-      // against the cap it is merely transitioning within, not adding to.
+      // Same quota check as GET /api/suggestions/quota (Task 2): count by
+      // submittedAt, not createdAt, since a Draft can be created in an
+      // earlier month and finalized later — counting by createdAt would
+      // never match this month's range and would bypass the cap entirely.
+      // status: { $ne: "Draft" } also excludes the draft being finalized
+      // from its own count (its status field in the DB is still "Draft"
+      // at this point), so it is not double-counted against the cap it is
+      // merely transitioning within, not adding to.
       const currentMonthSuggestions = await Suggestion.countDocuments({
         author: session.user.id,
-        _id: { $ne: suggestion._id },
-        createdAt: { $gte: startOfMonth, $lte: endOfMonth },
+        status: { $ne: "Draft" },
+        $or: [
+          { submittedAt: { $gte: startOfMonth, $lte: endOfMonth } },
+          { submittedAt: { $exists: false }, createdAt: { $gte: startOfMonth, $lte: endOfMonth } },
+        ],
       });
 
       if (currentMonthSuggestions >= 5) {
