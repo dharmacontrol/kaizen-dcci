@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           console.log("Checking password for user:", user.nik);
-          const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.password!);
           console.log("Password valid:", isPasswordValid);
 
           if (!isPasswordValid) {
@@ -45,21 +45,27 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Invalid NIK or password");
           }
 
+        // `.populate("role", "name permissions")` above replaces `role`'s
+        // runtime value with the populated Role document, but its static
+        // type (IUser.role) stays `mongoose.Types.ObjectId` — cast to read
+        // the populated fields.
+        const role = user.role as unknown as { name?: string; permissions?: Record<string, boolean> } | undefined;
+
         return {
           id: user._id.toString(),
           name: user.name,
           email: user.email,
-          role: user.role?.name || "Employee",
+          role: role?.name || "Employee",
           department: user.department.toString(),
           permissions: {
-            canViewDashboard: user.role?.permissions?.canViewDashboard ?? false,
-            canViewSuggestions: user.role?.permissions?.canViewSuggestions ?? true,
-            canCreateSuggestions: user.role?.permissions?.canCreateSuggestions ?? true,
-            canManageSuggestions: user.role?.permissions?.canManageSuggestions ?? false,
-            canDeleteSuggestions: user.role?.permissions?.canDeleteSuggestions ?? false,
-            canManageSystem: user.role?.permissions?.canManageSystem ?? false,
-            canManageNews: user.role?.permissions?.canManageNews ?? false,
-            canViewTerms: user.role?.permissions?.canViewTerms ?? true
+            canViewDashboard: role?.permissions?.canViewDashboard ?? false,
+            canViewSuggestions: role?.permissions?.canViewSuggestions ?? true,
+            canCreateSuggestions: role?.permissions?.canCreateSuggestions ?? true,
+            canManageSuggestions: role?.permissions?.canManageSuggestions ?? false,
+            canDeleteSuggestions: role?.permissions?.canDeleteSuggestions ?? false,
+            canManageSystem: role?.permissions?.canManageSystem ?? false,
+            canManageNews: role?.permissions?.canManageNews ?? false,
+            canViewTerms: role?.permissions?.canViewTerms ?? true
           }
         };
         } catch (error) {

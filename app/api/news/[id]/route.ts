@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     const formData = await req.formData();
     const title = formData.get("title") as string;
     const content = formData.get("content") as string;
-    const status = formData.get("status") as string;
+    const status = formData.get("status") as "Draft" | "Published" | null;
     const category = formData.get("category") as string;
     const coverImage = formData.get("coverImage") as File | null;
     const deleteCoverImage = formData.get("deleteCoverImage") === "true";

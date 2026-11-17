@@ -5,7 +5,9 @@ import dynamic from "next/dynamic";
 import "react-quill-new/dist/quill.snow.css"; // Import styles
 
 // Dynamically import ReactQuill so it doesn't run on the server (SSR)
-const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false, loading: () => <div className="h-64 w-full bg-gray-50 animate-pulse rounded-2xl border border-gray-200"></div> });
+// Cast to any: react-quill-new's dynamic-import type doesn't expose `ref` in
+// its props even though the underlying component supports it via forwardRef.
+const ReactQuill: any = dynamic(() => import("react-quill-new"), { ssr: false, loading: () => <div className="h-64 w-full bg-gray-50 animate-pulse rounded-2xl border border-gray-200"></div> });
 
 interface RichTextEditorProps {
   value: string;

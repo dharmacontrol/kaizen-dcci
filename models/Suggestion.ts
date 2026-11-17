@@ -1,6 +1,8 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface ISuggestion extends Document {
+  createdAt: Date;
+  updatedAt: Date;
   title: string;
   problem?: string;
   solution?: string;

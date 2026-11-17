@@ -6,6 +6,7 @@ declare module "next-auth" {
       id: string;
       role: string;
       department: string;
+      profilePicture?: string;
       permissions: {
         canViewDashboard: boolean;
         canViewSuggestions: boolean;
@@ -14,6 +15,7 @@ declare module "next-auth" {
         canDeleteSuggestions: boolean;
         canManageSystem: boolean;
         canManageNews: boolean;
+        canViewTerms: boolean;
       };
     } & DefaultSession["user"];
   }

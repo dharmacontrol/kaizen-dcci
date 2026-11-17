@@ -68,9 +68,7 @@ export default function ProfilePage() {
         .then((data) => {
           if (Array.isArray(data)) {
             const mine = data.filter(
-              (s: any) =>
-                s.author?._id === session?.user?.id ||
-                s.author?.username === session?.user?.username,
+              (s: any) => s.author?._id === session?.user?.id,
             );
             setMySuggestions(
               mine.sort(

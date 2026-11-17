@@ -138,7 +138,7 @@ export async function PATCH(req: NextRequest, context: { params: any }) {
 
     // Create Notification for the author
     let message = "";
-    let type = "INFO";
+    let type: "INFO" | "SUCCESS" | "WARNING" | "ACTION" = "INFO";
     if (status === "Approved") {
       message = `Your suggestion has been Approved! You earned +${bonusPoints} points.`;
       type = "SUCCESS";
