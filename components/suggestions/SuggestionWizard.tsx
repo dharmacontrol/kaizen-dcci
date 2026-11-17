@@ -14,6 +14,7 @@ import {
   Info,
   Lightbulb,
   Plus,
+  Save,
   Send,
   Wallet,
   X,
@@ -42,7 +43,11 @@ export type SuggestionFormData = {
 
 export type SuggestionWizardProps = {
   mode: "create" | "revise";
-  initialData?: Partial<SuggestionFormData>; // existing draft or revision being edited
+  // STEP 11 (Task 11): `updatedAt` rides alongside the form fields (not a
+  // sibling prop) — it's the same record the page wrapper already fetched,
+  // just carrying one extra timestamp used only to decide whether a local
+  // `localStorage` mirror is newer than what the server last saved.
+  initialData?: Partial<SuggestionFormData> & { updatedAt?: string }; // existing draft or revision being edited
   draftId?: string; // present when resuming/finalizing a draft
   departments: { _id: string; name: string }[];
   onSaveDraft: (data: SuggestionFormData) => Promise<{ _id: string }>;
@@ -214,6 +219,64 @@ type SimilarCheckState = {
  * in-progress "+ Tambah Foto" slot, not one slot per already-added photo. */
 type PhotoSlot = "before" | "after" | "additional";
 
+/**
+ * STEP 11 (Task 11): the `localStorage` mirror's shape. Only text fields are
+ * stored — `File` objects aren't JSON-serializable, so image fields are
+ * reduced to their names, purely for display ("you had a before photo named
+ * X attached") since a name alone can't repopulate a real `File`.
+ */
+type StoredDraftFields = {
+  title: string;
+  category: string;
+  department: string;
+  problem: string;
+  solution: string;
+  costEffectiveExplanation: string;
+  costEffectiveNominal: string;
+  beforeImageName: string | null;
+  afterImageName: string | null;
+  additionalImageNames: string[];
+};
+
+type StoredDraftMirror = {
+  savedAt: number;
+  fields: StoredDraftFields;
+};
+
+/** The resume-prompt's pending state: the mirror found, plus the exact
+ * `localStorage` key it lives under (so accept/decline act on that same key
+ * even if `effectiveDraftId` changes in between, e.g. after a save). */
+type ResumePromptState = {
+  key: string;
+  fields: StoredDraftFields;
+};
+
+function draftMirrorKey(effectiveDraftId: string | undefined): string {
+  return `suggestion-draft-${effectiveDraftId ?? "new"}`;
+}
+
+/** Best-effort read of a stored mirror; corrupt/foreign JSON is treated as
+ * "no mirror" rather than crashing the wizard. */
+function readDraftMirror(key: string): StoredDraftMirror | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredDraftMirror> | null;
+    if (
+      !parsed ||
+      typeof parsed.savedAt !== "number" ||
+      !parsed.fields ||
+      typeof parsed.fields !== "object"
+    ) {
+      return null;
+    }
+    return parsed as StoredDraftMirror;
+  } catch {
+    return null;
+  }
+}
+
 type TransitionPhase = "idle" | "exiting" | "entering";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
@@ -241,7 +304,7 @@ function usePrefersReducedMotion(): boolean {
 }
 
 export default function SuggestionWizard(props: SuggestionWizardProps) {
-  const { initialData, departments, draftId, onSubmit } = props;
+  const { initialData, departments, draftId, onSubmit, onSaveDraft } = props;
 
   const [currentStep, setCurrentStep] = useState(FIRST_STEP);
   const [formData, setFormData] = useState<SuggestionFormData>(() =>
@@ -251,6 +314,35 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
     Partial<Record<keyof SuggestionFormData, boolean>>
   >({});
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
+
+  // STEP 11 (Task 11): "Simpan Draft" lives in the shared footer, not inside
+  // any `render*` function, because it must stay visible (and its in-flight
+  // state consistent) across every step — see the file-level note on
+  // `visibleStep` about step content fully unmounting per navigation.
+  //
+  // `savedDraftId` is the wizard's own record of the id a successful
+  // `onSaveDraft` call returned. The page wrapper (Task 12/13) also tracks
+  // this via a URL query param, but that round-trips through a render from
+  // the parent; holding it here means the very next keystroke after a save
+  // immediately mirrors under the real draft's key instead of still using
+  // the `"new"` key for one extra render.
+  const [savedDraftId, setSavedDraftId] = useState<string | null>(null);
+  const effectiveDraftId = draftId ?? savedDraftId ?? undefined;
+
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
+  const draftSavedTimeoutRef = useRef<number | null>(null);
+
+  // STEP 11 (Task 11): the "resume this draft?" prompt, populated once (on
+  // mount) if a newer local mirror exists than `initialData.updatedAt`. Also
+  // doubles as a gate: while it's non-null, the mirror-write effect below
+  // must not overwrite the very entry the user hasn't decided on yet.
+  const [resumePrompt, setResumePrompt] = useState<ResumePromptState | null>(
+    null
+  );
+  const resumeDecisionPendingRef = useRef(false);
+  const mirrorTimeoutRef = useRef<number | null>(null);
 
   // STEP 5 (Task 10): the duplicate-check result and the final-submit
   // in-flight/error state. Both are transient, per-visit UI state — neither
@@ -359,6 +451,167 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
       cancelled = true;
     };
   }, []);
+
+  /* --- STEP 11 (Task 11): resume-prompt check (mount only) -----------------
+   * Runs once, comparing a locally-mirrored draft against the timestamp the
+   * server told us about via `initialData.updatedAt`. Deliberately an empty
+   * dependency array — the brief's trigger is "on mount", not "whenever
+   * `draftId` happens to change" (which would re-fire after this wizard's
+   * own `onSaveDraft` call updates `savedDraftId`/`effectiveDraftId`, and
+   * incorrectly re-show a prompt the user already resolved).
+   */
+  useEffect(() => {
+    // Deferred via a resolved microtask so the `setResumePrompt` call below
+    // happens inside a callback rather than synchronously in the effect
+    // body — the same shape the duplicate-idea check effect uses via
+    // `.then()` — satisfying the `react-hooks/set-state-in-effect` rule.
+    // There's no external subscription here (it's a one-off local read), so
+    // a resolved promise is the least-contrived stand-in for one.
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      const key = draftMirrorKey(effectiveDraftId);
+      const mirror = readDraftMirror(key);
+      if (!mirror) return;
+
+      const initialUpdatedAtMs = initialData?.updatedAt
+        ? new Date(initialData.updatedAt).getTime()
+        : 0;
+      const comparableInitial = Number.isNaN(initialUpdatedAtMs)
+        ? 0
+        : initialUpdatedAtMs;
+
+      if (mirror.savedAt > comparableInitial) {
+        resumeDecisionPendingRef.current = true;
+        setResumePrompt({ key, fields: mirror.fields });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Accepting the resume prompt loads the mirrored text fields into state
+   * (overwriting whatever `initialData` put there), per the brief — image
+   * fields are left untouched since the mirror never stored real `File`s. */
+  const acceptResumePrompt = useCallback(() => {
+    if (!resumePrompt) return;
+    const { fields } = resumePrompt;
+    setFormData((prev) => ({
+      ...prev,
+      title: fields.title,
+      category: fields.category,
+      department: fields.department,
+      problem: fields.problem,
+      solution: fields.solution,
+      costEffectiveExplanation: fields.costEffectiveExplanation,
+      costEffectiveNominal: fields.costEffectiveNominal,
+    }));
+    resumeDecisionPendingRef.current = false;
+    setResumePrompt(null);
+  }, [resumePrompt]);
+
+  /** Declining or dismissing clears the stale mirror so it never resurfaces
+   * (and never gets compared against on a later mount). */
+  const declineResumePrompt = useCallback(() => {
+    if (!resumePrompt) return;
+    try {
+      window.localStorage.removeItem(resumePrompt.key);
+    } catch {
+      // Storage unavailable — nothing to clean up.
+    }
+    resumeDecisionPendingRef.current = false;
+    setResumePrompt(null);
+  }, [resumePrompt]);
+
+  /* --- STEP 11 (Task 11): debounced localStorage mirror ---------------------
+   * Mirrors every field change ~500ms after the user stops typing/selecting,
+   * keyed by the draft's id (or "new"). Skipped entirely while a resume
+   * decision is pending so it never clobbers the very mirror the prompt
+   * above is offering to restore.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (mirrorTimeoutRef.current) window.clearTimeout(mirrorTimeoutRef.current);
+
+    mirrorTimeoutRef.current = window.setTimeout(() => {
+      if (resumeDecisionPendingRef.current) return;
+
+      const fields: StoredDraftFields = {
+        title: formData.title,
+        category: formData.category,
+        department: formData.department,
+        problem: formData.problem,
+        solution: formData.solution,
+        costEffectiveExplanation: formData.costEffectiveExplanation,
+        costEffectiveNominal: formData.costEffectiveNominal,
+        beforeImageName: formData.beforeImage?.name ?? null,
+        afterImageName: formData.afterImage?.name ?? null,
+        additionalImageNames: formData.additionalImages.map((file) => file.name),
+      };
+      const mirror: StoredDraftMirror = { savedAt: Date.now(), fields };
+      try {
+        window.localStorage.setItem(draftMirrorKey(effectiveDraftId), JSON.stringify(mirror));
+      } catch {
+        // Storage full/unavailable (e.g. private browsing) — the mirror is
+        // crash insurance only, never required for the wizard to function.
+      }
+    }, 500);
+
+    return () => {
+      if (mirrorTimeoutRef.current) window.clearTimeout(mirrorTimeoutRef.current);
+    };
+  }, [formData, effectiveDraftId]);
+
+  // Clear any pending "Tersimpan" auto-hide timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (draftSavedTimeoutRef.current) window.clearTimeout(draftSavedTimeoutRef.current);
+    };
+  }, []);
+
+  /** STEP 11 (Task 11): manual "Simpan Draft" save. Disabling the button for
+   * the duration of the call (via `savingDraft`) is the actual fix for the
+   * double-click-creates-two-drafts failure mode — not just a visual state,
+   * since the button's `disabled` attribute is driven by this same flag. */
+  const handleSaveDraft = useCallback(async () => {
+    if (savingDraft) return;
+    // Captured before the save resolves: whether this save is the one that
+    // turns a brand-new, id-less draft into a real one.
+    const wasNewDraft = effectiveDraftId === undefined;
+    setSavingDraft(true);
+    setDraftSaved(false);
+    setDraftSaveError(null);
+    try {
+      const result = await onSaveDraft(formData);
+      if (result?._id) {
+        setSavedDraftId(result._id);
+        // The mirror effect will start writing under the new id's key from
+        // here on — clear the old `"new"` key now, or it sits as an orphan
+        // that could wrongly trigger the resume prompt for a *future*,
+        // unrelated brand-new draft (its "newer than initialData.updatedAt"
+        // check treats a missing `updatedAt` as 0, so any leftover "new"
+        // entry would always look newer).
+        if (wasNewDraft) {
+          try {
+            window.localStorage.removeItem(draftMirrorKey(undefined));
+          } catch {
+            // Storage unavailable — nothing to clean up.
+          }
+        }
+      }
+      setDraftSaved(true);
+      if (draftSavedTimeoutRef.current) window.clearTimeout(draftSavedTimeoutRef.current);
+      draftSavedTimeoutRef.current = window.setTimeout(() => setDraftSaved(false), 3000);
+    } catch (err) {
+      setDraftSaveError(
+        extractErrorMessage(err, "Gagal menyimpan draft. Silakan coba lagi.")
+      );
+    } finally {
+      setSavingDraft(false);
+    }
+  }, [savingDraft, onSaveDraft, formData, effectiveDraftId]);
 
   /* --- STEP 5 (Task 10): duplicate-idea check ------------------------------
    * Fires the first time `currentStep` reaches 5, and again any time it
@@ -1371,6 +1624,46 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* STEP 11 (Task 11): resume-prompt — mount-time only, shown above the
+          progress indicator so it's visible no matter which step the user
+          lands on. Dismissing (the X) behaves the same as declining. */}
+      {resumePrompt && (
+        <div className="m-6 md:m-8 mb-0 bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3">
+          <div className="mt-0.5 text-amber-600 shrink-0">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-3">
+            <p className="text-amber-900 text-sm font-semibold">
+              Ada draft yang belum disimpan di perangkat ini, mau dipakai?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={acceptResumePrompt}
+                className="px-4 py-2 bg-amber-600 text-white text-sm font-bold rounded-xl hover:bg-amber-700 transition-colors"
+              >
+                Pakai draft ini
+              </button>
+              <button
+                type="button"
+                onClick={declineResumePrompt}
+                className="px-4 py-2 bg-white border border-amber-200 text-amber-800 text-sm font-bold rounded-xl hover:bg-amber-100 transition-colors"
+              >
+                Abaikan
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={declineResumePrompt}
+            aria-label="Tutup, abaikan draft lokal"
+            className="shrink-0 text-amber-500 hover:text-amber-700 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Progress indicator */}
       <div className="p-6 md:p-8 border-b border-gray-100">
         <ol className="flex items-start" aria-label="Langkah pengisian usulan">
@@ -1458,7 +1751,10 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
 
       {/* Footer actions.
           Task 10 adds the final "Ajukan Suggestion" button on step 5 and
-          Task 11 adds the "Simpan Draft" button here. */}
+          Task 11 adds the "Simpan Draft" button here — visible on every
+          step, matching today's footer layout (Batal / Simpan Draft /
+          submit), just with "Batal" swapped for the wizard's own
+          "Kembali". */}
       <div className="p-6 md:p-8 bg-gray-50 border-t border-gray-100 flex flex-col-reverse md:flex-row items-center justify-between gap-3 md:gap-4">
         <button
           type="button"
@@ -1469,6 +1765,36 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
           <ArrowLeft className="w-4 h-4" />
           Kembali
         </button>
+
+        {/* STEP 11 (Task 11): "Simpan Draft" — disabled (not just styled
+            disabled) for the entire round trip of `onSaveDraft`, which is
+            the actual fix for the double-click-creates-two-drafts failure
+            mode. Also disabled during final submit to avoid a save-draft
+            and a submit racing against each other. */}
+        <div className="w-full md:w-auto flex flex-col items-center gap-2">
+          {draftSaveError && (
+            <p className="text-xs text-red-600 font-semibold text-center">
+              {draftSaveError}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={savingDraft || submitting}
+              className="w-full md:w-auto px-6 py-3 bg-blue-50 text-blue-700 border border-blue-100 font-bold rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <Save className="w-4 h-4" />
+              {savingDraft ? "Menyimpan..." : "Simpan Draft"}
+            </button>
+            {draftSaved && (
+              <span className="text-sm font-bold text-emerald-600 flex items-center gap-1 shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+                Tersimpan
+              </span>
+            )}
+          </div>
+        </div>
 
         {currentStep < LAST_STEP ? (
           <button
