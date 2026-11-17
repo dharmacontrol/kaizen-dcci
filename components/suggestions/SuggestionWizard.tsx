@@ -861,6 +861,16 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
     setSubmitError(null);
     try {
       await onSubmit(formData);
+      // Clear the localStorage draft mirror on a successful submit — a
+      // stale mirror left behind here would outlive the submitted idea and
+      // wrongly offer to "resume" it (its savedAt would compare as newer
+      // than a fresh initialData with no updatedAt) the next time the user
+      // starts a brand-new suggestion under the same key.
+      try {
+        window.localStorage.removeItem(draftMirrorKey(effectiveDraftId));
+      } catch {
+        // Storage unavailable — nothing to clean up.
+      }
     } catch (err) {
       setSubmitError(
         extractErrorMessage(err, "Gagal mengirim usulan. Silakan coba lagi.")

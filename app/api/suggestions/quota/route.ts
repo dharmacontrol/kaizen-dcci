@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import connectToDatabase from "@/lib/mongodb";
 import Suggestion from "@/models/Suggestion";
+import { buildMonthlyQuotaQuery } from "@/lib/suggestionQuota";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,14 +19,9 @@ export async function GET(req: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    const count = await Suggestion.countDocuments({
-      author: session.user.id,
-      status: { $ne: "Draft" },
-      $or: [
-        { submittedAt: { $gte: startOfMonth, $lte: endOfMonth } },
-        { submittedAt: { $exists: false }, createdAt: { $gte: startOfMonth, $lte: endOfMonth } },
-      ],
-    });
+    const count = await Suggestion.countDocuments(
+      buildMonthlyQuotaQuery(session.user.id, startOfMonth, endOfMonth)
+    );
 
     return NextResponse.json({ used: count, max: 5, period });
   } catch (error: any) {

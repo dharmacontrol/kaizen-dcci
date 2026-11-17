@@ -9,6 +9,7 @@ import Role from "@/models/Role";
 import Notification from "@/models/Notification";
 import PointLog from "@/models/PointLog";
 import { saveSuggestionImage, validateSuggestionImage } from "@/lib/suggestionUploads";
+import { buildMonthlyQuotaQuery } from "@/lib/suggestionQuota";
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,9 +22,13 @@ export async function GET(req: NextRequest) {
     
     // Role-based filtering:
     // If the user is an Employee, they can only see their own suggestions.
-    // Managers/Admins can see all suggestions.
+    // Managers/Admins can see all suggestions, EXCEPT other users' Drafts —
+    // Drafts are private scratch work and must not leak to anyone but their
+    // author, regardless of role.
     if (session.user.role === "Employee") {
       query = { author: session.user.id };
+    } else {
+      query = { $or: [{ status: { $ne: "Draft" } }, { author: session.user.id }] };
     }
 
     const suggestions = await Suggestion.find(query)
@@ -144,12 +149,12 @@ export async function POST(req: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    // Validate max 5 suggestions per month
-    const currentMonthSuggestions = await Suggestion.countDocuments({
-      author: session.user.id,
-      status: { $ne: "Draft" },
-      createdAt: { $gte: startOfMonth, $lte: endOfMonth }
-    });
+    // Validate max 5 suggestions per month. Counted by submittedAt (falling
+    // back to createdAt only when submittedAt doesn't exist), not createdAt
+    // alone — see lib/suggestionQuota.ts for why.
+    const currentMonthSuggestions = await Suggestion.countDocuments(
+      buildMonthlyQuotaQuery(session.user.id, startOfMonth, endOfMonth)
+    );
 
     if (currentMonthSuggestions >= 5) {
       return NextResponse.json({ error: "Anda telah mencapai batas maksimal 5 usulan untuk periode bulan ini." }, { status: 400 });

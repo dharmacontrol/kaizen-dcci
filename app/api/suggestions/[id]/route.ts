@@ -9,6 +9,11 @@ import Role from "@/models/Role";
 import Notification from "@/models/Notification";
 import PointLog from "@/models/PointLog";
 import { saveSuggestionImage, validateSuggestionImage } from "@/lib/suggestionUploads";
+import { buildMonthlyQuotaQuery } from "@/lib/suggestionQuota";
+
+// Same cap enforced client-side in components/suggestions/SuggestionWizard.tsx
+// (MAX_ADDITIONAL_IMAGES) and in the sibling POST handler's per-request check.
+const MAX_ADDITIONAL_IMAGES = 3;
 
 export async function GET(req: NextRequest, context: { params: any }) {
   try {
@@ -22,7 +27,8 @@ export async function GET(req: NextRequest, context: { params: any }) {
     const suggestion = await Suggestion.findById(id)
       .populate("author", "name nik role")
       .populate("department", "name")
-      .populate("comments.author", "name role");
+      .populate("comments.author", "name role")
+      .populate("revisionHistory.department", "name");
 
     if (!suggestion) {
       return NextResponse.json({ error: "Suggestion not found" }, { status: 404 });
@@ -219,7 +225,7 @@ export async function PUT(req: NextRequest, context: { params: any }) {
       (f): f is File => f instanceof File && f.size > 0
     );
 
-    if (additionalImages.length > 3) {
+    if (additionalImages.length > MAX_ADDITIONAL_IMAGES) {
       return NextResponse.json({ error: "Maximum of 3 additional images allowed" }, { status: 400 });
     }
 
@@ -261,7 +267,9 @@ export async function PUT(req: NextRequest, context: { params: any }) {
     // "no change to this image", not "clear this image".
     let beforeImagePath = suggestion.images?.before || "";
     let afterImagePath = suggestion.images?.after || "";
-    let additionalImagePaths = suggestion.images?.additional ? [...suggestion.images.additional] : [];
+    let additionalImagePaths: string[] = suggestion.images?.additional
+      ? [...suggestion.images.additional]
+      : [];
 
     try {
       if (beforeImage && beforeImage.size > 0) {
@@ -273,10 +281,28 @@ export async function PUT(req: NextRequest, context: { params: any }) {
       }
 
       if (additionalImages.length > 0) {
-        additionalImagePaths = [];
+        // Append newly-uploaded additional images to the EXISTING array
+        // rather than replacing it. The wizard doesn't currently load a
+        // Draft/Revision's existing additional-image URLs into its own
+        // state (a separate, already-tracked limitation), so a request
+        // that adds one new photo to an idea that already has some stored
+        // only contains that one new file — replacing the whole array
+        // would silently wipe out the previously-stored ones. Capped at
+        // MAX_ADDITIONAL_IMAGES total: if the combined count would exceed
+        // the cap, keep the existing ones and only append as many new ones
+        // as fit (advisory UX cap, not a hard validation failure).
+        const newAdditionalPaths: string[] = [];
         for (const file of additionalImages) {
-          additionalImagePaths.push(await saveSuggestionImage(file));
+          newAdditionalPaths.push(await saveSuggestionImage(file));
         }
+        const remainingSlots = Math.max(
+          0,
+          MAX_ADDITIONAL_IMAGES - additionalImagePaths.length
+        );
+        additionalImagePaths = [
+          ...additionalImagePaths,
+          ...newAdditionalPaths.slice(0, remainingSlots),
+        ];
       }
     } catch (err) {
       return NextResponse.json({ error: "File bukan gambar yang valid" }, { status: 400 });
@@ -320,14 +346,9 @@ export async function PUT(req: NextRequest, context: { params: any }) {
       // from its own count (its status field in the DB is still "Draft"
       // at this point), so it is not double-counted against the cap it is
       // merely transitioning within, not adding to.
-      const currentMonthSuggestions = await Suggestion.countDocuments({
-        author: session.user.id,
-        status: { $ne: "Draft" },
-        $or: [
-          { submittedAt: { $gte: startOfMonth, $lte: endOfMonth } },
-          { submittedAt: { $exists: false }, createdAt: { $gte: startOfMonth, $lte: endOfMonth } },
-        ],
-      });
+      const currentMonthSuggestions = await Suggestion.countDocuments(
+        buildMonthlyQuotaQuery(session.user.id, startOfMonth, endOfMonth)
+      );
 
       if (currentMonthSuggestions >= 5) {
         return NextResponse.json({ error: "Anda telah mencapai batas maksimal 5 usulan untuk periode bulan ini." }, { status: 400 });
