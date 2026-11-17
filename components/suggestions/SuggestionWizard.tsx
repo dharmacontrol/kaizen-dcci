@@ -10,11 +10,15 @@ import {
   CheckCircle2,
   ClipboardCheck,
   ClipboardList,
+  Image as ImageIcon,
   Info,
   Lightbulb,
+  Plus,
   Wallet,
+  X,
 } from "lucide-react";
 import VoiceInputButton from "./VoiceInputButton";
+import { compressImageFile } from "@/lib/compressImage";
 
 /* ============================================================================
  * Public contract (imported by the create page, the edit page and the later
@@ -96,6 +100,16 @@ const CATEGORY_OPTIONS = [
 /** STEP 2 (Task 8): minimum length required for both `problem` and `solution`. */
 const MIN_PROBLEM_SOLUTION_LENGTH = 50;
 
+/**
+ * STEP 4 (Task 9): client-side mirror of `MAX_IMAGE_SIZE` in
+ * `lib/suggestionUploads.ts` — rejecting an over-limit file here means a
+ * legitimate upload never gets a surprise 400 at submit time.
+ */
+const MAX_CLIENT_IMAGE_SIZE = 5 * 1024 * 1024;
+
+/** STEP 4 (Task 9): the maximum number of "Foto Pendukung" (supporting) photos. */
+const MAX_ADDITIONAL_IMAGES = 3;
+
 /** Shared input chrome — identical to the rest of the dashboard's forms. */
 const INPUT_CLASS =
   "w-full px-4 py-3 bg-gray-50 border rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
@@ -163,6 +177,10 @@ function isStepComplete(step: number, data: SuggestionFormData): boolean {
 
 type QuotaInfo = { used: number; max: number };
 
+/** STEP 4 (Task 9): the three photo drop targets — "additional" is the single
+ * in-progress "+ Tambah Foto" slot, not one slot per already-added photo. */
+type PhotoSlot = "before" | "after" | "additional";
+
 type TransitionPhase = "idle" | "exiting" | "entering";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
@@ -200,6 +218,22 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
     Partial<Record<keyof SuggestionFormData, boolean>>
   >({});
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
+
+  // STEP 4 (Task 9): transient, tile-local UI state for the photo step. None
+  // of this needs to survive navigation (it's derived fresh from whatever
+  // the user is doing right now), but it's declared here — at the top level
+  // of the wizard, not inside a `render*` function — because the photo
+  // previews below use effects, and those must be called unconditionally on
+  // every render (rules of hooks), not only while step 4 happens to be
+  // mounted.
+  const [photoStatus, setPhotoStatus] = useState<
+    Record<PhotoSlot, { compressing: boolean; error: string | null }>
+  >({
+    before: { compressing: false, error: null },
+    after: { compressing: false, error: null },
+    additional: { compressing: false, error: null },
+  });
+  const [dragOverSlot, setDragOverSlot] = useState<PhotoSlot | null>(null);
 
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -307,6 +341,127 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
 
   const isFilled = (key: keyof SuggestionFormData) =>
     String(formData[key] ?? "").trim().length > 0;
+
+  /* --- STEP 4 (Task 9): photo previews -------------------------------------
+   * The object URL is derived synchronously during render via `useMemo` (a
+   * pure function of the `File`) rather than via effect+state — computing it
+   * eagerly means the preview is available the same render the file lands in
+   * `formData`, and avoids the "setState inside an effect" anti-pattern.
+   * `URL.createObjectURL` results must still be revoked or they leak for the
+   * life of the tab, so a cleanup-only effect (no setState) revokes the
+   * previous URL whenever it changes or on unmount. Declared here — not
+   * inside `renderStep4` — because these must run unconditionally on every
+   * render of the wizard (rules of hooks), not only while step 4 is mounted. */
+  const beforeImagePreview = useMemo(
+    () => (formData.beforeImage ? URL.createObjectURL(formData.beforeImage) : null),
+    [formData.beforeImage]
+  );
+  useEffect(() => {
+    return () => {
+      if (beforeImagePreview) URL.revokeObjectURL(beforeImagePreview);
+    };
+  }, [beforeImagePreview]);
+
+  const afterImagePreview = useMemo(
+    () => (formData.afterImage ? URL.createObjectURL(formData.afterImage) : null),
+    [formData.afterImage]
+  );
+  useEffect(() => {
+    return () => {
+      if (afterImagePreview) URL.revokeObjectURL(afterImagePreview);
+    };
+  }, [afterImagePreview]);
+
+  const additionalImagePreviews = useMemo(
+    () => formData.additionalImages.map((file) => URL.createObjectURL(file)),
+    [formData.additionalImages]
+  );
+  useEffect(() => {
+    return () => {
+      additionalImagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [additionalImagePreviews]);
+
+  /* --- STEP 4 (Task 9): photo selection handlers ---------------------------
+   * Every selected file — before/after/additional alike — is run through
+   * `compressImageFile` before it's ever written to `formData`, so what
+   * lands in state (and what later gets uploaded) is always the compressed
+   * version. A tile's "Mengompres..." / error state lives in `photoStatus`
+   * (declared above, not here) since it must stay in sync while this async
+   * work is in flight, independent of whichever render function is active.
+   */
+  const setPhotoSlotStatus = useCallback(
+    (slot: PhotoSlot, status: { compressing: boolean; error: string | null }) => {
+      setPhotoStatus((prev) => ({ ...prev, [slot]: status }));
+    },
+    []
+  );
+
+  const handleBeforeAfterFile = useCallback(
+    async (slot: "before" | "after", file: File) => {
+      setPhotoSlotStatus(slot, { compressing: true, error: null });
+      try {
+        const compressed = await compressImageFile(file);
+        if (compressed.size > MAX_CLIENT_IMAGE_SIZE) {
+          setPhotoSlotStatus(slot, {
+            compressing: false,
+            error: "Masih terlalu besar setelah dikompres.",
+          });
+          return;
+        }
+        setPhotoSlotStatus(slot, { compressing: false, error: null });
+        setField(slot === "before" ? "beforeImage" : "afterImage", compressed);
+      } catch {
+        setPhotoSlotStatus(slot, {
+          compressing: false,
+          error: "File harus berupa gambar.",
+        });
+      }
+    },
+    [setField, setPhotoSlotStatus]
+  );
+
+  const removeBeforeAfterImage = useCallback(
+    (slot: "before" | "after") => {
+      setField(slot === "before" ? "beforeImage" : "afterImage", null);
+      setPhotoSlotStatus(slot, { compressing: false, error: null });
+    },
+    [setField, setPhotoSlotStatus]
+  );
+
+  const handleAdditionalFile = useCallback(
+    async (file: File) => {
+      setPhotoSlotStatus("additional", { compressing: true, error: null });
+      try {
+        const compressed = await compressImageFile(file);
+        if (compressed.size > MAX_CLIENT_IMAGE_SIZE) {
+          setPhotoSlotStatus("additional", {
+            compressing: false,
+            error: "Masih terlalu besar setelah dikompres.",
+          });
+          return;
+        }
+        setPhotoSlotStatus("additional", { compressing: false, error: null });
+        setFormData((prev) => ({
+          ...prev,
+          additionalImages: [...prev.additionalImages, compressed],
+        }));
+      } catch {
+        setPhotoSlotStatus("additional", {
+          compressing: false,
+          error: "File harus berupa gambar.",
+        });
+      }
+    },
+    [setPhotoSlotStatus]
+  );
+
+  const removeAdditionalImage = useCallback((index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      additionalImages: prev.additionalImages.filter((_, i) => i !== index),
+    }));
+  }, []);
 
   /* --- navigation ---------------------------------------------------------- */
   const goToStep = useCallback(
@@ -635,6 +790,233 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
     </div>
   );
 
+  // STEP 4 (Task 9): Before/After + up to 3 supporting photos.
+  const renderStep4 = () => {
+    // A single before/after drop tile. When no file is stored, the whole
+    // dashed box IS the <label> (clicking anywhere opens the picker, matching
+    // today's create-page tiles); once a compressed file is stored, the box
+    // becomes a plain <div> showing a thumbnail + a standalone remove button,
+    // so there's no ambiguity between "click tile to replace" and "click X to
+    // remove" — remove first, then pick again.
+    const renderBeforeAfterTile = (
+      slot: "before" | "after",
+      label: string,
+      helperText: string,
+      file: File | null,
+      previewUrl: string | null
+    ) => {
+      const status = photoStatus[slot];
+      const isDragActive = dragOverSlot === slot;
+      const boxClassName = `relative border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all min-h-[160px] ${
+        isDragActive
+          ? "border-primary bg-primary/5"
+          : status.error
+          ? "border-red-300 bg-red-50"
+          : "border-gray-200 bg-gray-50"
+      }`;
+
+      const dragHandlers = {
+        onDragEnter: (e: React.DragEvent) => {
+          e.preventDefault();
+          setDragOverSlot(slot);
+        },
+        onDragOver: (e: React.DragEvent) => {
+          e.preventDefault();
+          setDragOverSlot(slot);
+        },
+        onDragLeave: (e: React.DragEvent) => {
+          e.preventDefault();
+          setDragOverSlot((prev) => (prev === slot ? null : prev));
+        },
+        onDrop: (e: React.DragEvent) => {
+          e.preventDefault();
+          setDragOverSlot(null);
+          const dropped = e.dataTransfer.files?.[0];
+          if (dropped) handleBeforeAfterFile(slot, dropped);
+        },
+      };
+
+      return (
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-slate-700 block">{label}</label>
+
+          {file && previewUrl ? (
+            <div className={boxClassName} {...dragHandlers}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt={`Pratinjau ${label}`}
+                className="w-full h-24 object-cover rounded-xl mb-2"
+              />
+              <p className="text-xs text-gray-500 truncate max-w-full">{file.name}</p>
+              <button
+                type="button"
+                onClick={() => removeBeforeAfterImage(slot)}
+                aria-label={`Hapus ${label}`}
+                className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <label className={`cursor-pointer ${boxClassName}`} {...dragHandlers}>
+              <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-400 mb-3">
+                {status.compressing ? (
+                  <Camera className="w-6 h-6 text-primary animate-pulse motion-reduce:animate-none" />
+                ) : (
+                  <ImageIcon className="w-6 h-6" />
+                )}
+              </div>
+              <p className="text-sm font-bold text-slate-700 mb-1">
+                {status.compressing ? "Mengompres..." : "Ambil / Pilih Foto"}
+              </p>
+              {!status.compressing && <p className="text-xs text-gray-500">{helperText}</p>}
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                disabled={status.compressing}
+                onChange={(e) => {
+                  const selected = e.target.files?.[0];
+                  e.target.value = "";
+                  if (selected) handleBeforeAfterFile(slot, selected);
+                }}
+              />
+            </label>
+          )}
+
+          {status.error && (
+            <p className="text-xs text-red-500 font-medium">{status.error}</p>
+          )}
+        </div>
+      );
+    };
+
+    const additionalStatus = photoStatus.additional;
+    const additionalCount = formData.additionalImages.length;
+    const canAddMore = additionalCount < MAX_ADDITIONAL_IMAGES;
+    const isAdditionalDragActive = dragOverSlot === "additional";
+
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-bold text-slate-800 border-b border-gray-100 pb-2">
+          Foto
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {renderBeforeAfterTile(
+            "before",
+            "Foto Kondisi Awal (Before)",
+            "PNG, JPG, JPEG (Max. 5MB)",
+            formData.beforeImage,
+            beforeImagePreview
+          )}
+          {renderBeforeAfterTile(
+            "after",
+            "Foto Sesudah Perbaikan (After)",
+            "Bisa di-upload menyusul (Opsional)",
+            formData.afterImage,
+            afterImagePreview
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-slate-700 block">
+            Foto Pendukung{" "}
+            <span className="text-gray-400 font-normal text-xs">
+              (Opsional, maks. {MAX_ADDITIONAL_IMAGES})
+            </span>
+          </label>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {formData.additionalImages.map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={additionalImagePreviews[index]}
+                  alt={`Foto pendukung ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeAdditionalImage(index)}
+                  aria-label={`Hapus foto pendukung ${index + 1}`}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-200 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+
+            {canAddMore && (
+              <label
+                className={`cursor-pointer aspect-square border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-center transition-all p-2 ${
+                  isAdditionalDragActive
+                    ? "border-primary bg-primary/5"
+                    : additionalStatus.error
+                    ? "border-red-300 bg-red-50"
+                    : "border-gray-200 bg-gray-50"
+                }`}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragOverSlot("additional");
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverSlot("additional");
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setDragOverSlot((prev) => (prev === "additional" ? null : prev));
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverSlot(null);
+                  const dropped = e.dataTransfer.files?.[0];
+                  if (dropped) handleAdditionalFile(dropped);
+                }}
+              >
+                {additionalStatus.compressing ? (
+                  <>
+                    <Camera className="w-5 h-5 text-primary mb-1 animate-pulse motion-reduce:animate-none" />
+                    <span className="text-[11px] font-bold text-slate-700">
+                      Mengompres...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5 text-gray-400 mb-1" />
+                    <span className="text-[11px] font-bold text-slate-700">
+                      Tambah Foto
+                    </span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  disabled={additionalStatus.compressing}
+                  onChange={(e) => {
+                    const selected = e.target.files?.[0];
+                    e.target.value = "";
+                    if (selected) handleAdditionalFile(selected);
+                  }}
+                />
+              </label>
+            )}
+          </div>
+
+          {additionalStatus.error && (
+            <p className="text-xs text-red-500 font-medium">{additionalStatus.error}</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   /** Placeholder for the steps that later tasks fill in. */
   const renderPlaceholder = (label: string, note: string) => (
     <div className="space-y-5">
@@ -654,8 +1036,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
       case 3:
         return renderStep3();
       case 4:
-        // STEP 4 (Task 9): Before/After + up to 3 supporting photos.
-        return renderPlaceholder("Foto", "Langkah ini belum tersedia.");
+        return renderStep4();
       case 5:
         // STEP 5 (Task 10): review summary, duplicate check, final submit.
         return renderPlaceholder("Review", "Langkah ini belum tersedia.");
