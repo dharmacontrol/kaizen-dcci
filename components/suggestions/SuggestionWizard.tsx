@@ -14,6 +14,7 @@ import {
   Lightbulb,
   Wallet,
 } from "lucide-react";
+import VoiceInputButton from "./VoiceInputButton";
 
 /* ============================================================================
  * Public contract (imported by the create page, the edit page and the later
@@ -92,6 +93,9 @@ const CATEGORY_OPTIONS = [
   "Cost Down / Efisiensi Biaya Operasional",
 ];
 
+/** STEP 2 (Task 8): minimum length required for both `problem` and `solution`. */
+const MIN_PROBLEM_SOLUTION_LENGTH = 50;
+
 /** Shared input chrome — identical to the rest of the dashboard's forms. */
 const INPUT_CLASS =
   "w-full px-4 py-3 bg-gray-50 border rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
@@ -131,7 +135,9 @@ function createFormData(initial?: Partial<SuggestionFormData>): SuggestionFormDa
 const REQUIRED_FIELDS: Partial<Record<number, (keyof SuggestionFormData)[]>> = {
   1: ["title", "category", "department"],
   // STEP 2 (Task 8): problem/solution are required with a 50-character minimum,
-  // which `isStepComplete` handles separately (not a plain emptiness check).
+  // which `isStepComplete` handles separately (not a plain emptiness check) —
+  // listed here too so `handleNext` still marks them touched when blocked.
+  2: ["problem", "solution"],
 };
 
 /**
@@ -143,7 +149,11 @@ function isStepComplete(step: number, data: SuggestionFormData): boolean {
       return (REQUIRED_FIELDS[1] ?? []).every(
         (field) => String(data[field] ?? "").trim().length > 0
       );
-    // STEP 2 (Task 8): require problem/solution >= 50 chars.
+    case 2:
+      return (
+        data.problem.trim().length >= MIN_PROBLEM_SOLUTION_LENGTH &&
+        data.solution.trim().length >= MIN_PROBLEM_SOLUTION_LENGTH
+      );
     // STEP 4 (Task 9): photos stay optional.
     // STEP 5 (Task 10): final submit, no "Lanjut".
     default:
@@ -494,6 +504,90 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
     );
   };
 
+  // STEP 2 — Problem & Solusi
+  const renderStep2 = () => {
+    const problemLength = formData.problem.trim().length;
+    const solutionLength = formData.solution.trim().length;
+
+    // Appends recognized speech to whatever is already in the field, using a
+    // functional `setFormData` update so it's always based on the latest
+    // value even if voice results arrive in quick succession.
+    const appendVoiceResult = (key: "problem" | "solution", text: string) => {
+      const heard = text.trim();
+      if (!heard) return;
+      setFormData((prev) => ({
+        ...prev,
+        [key]: prev[key] ? `${prev[key]} ${heard}` : heard,
+      }));
+    };
+
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-bold text-slate-800 border-b border-gray-100 pb-2">
+          Problem & Solusi
+        </h3>
+
+        <div className="space-y-1.5">
+          <label htmlFor="wizard-problem" className="text-sm font-bold text-slate-700 block">
+            Masalah <span className="text-red-500">*</span>
+          </label>
+          <p className="text-sm text-gray-500">
+            Apa masalahnya? Kapan terjadi? Siapa/apa yang terdampak?
+          </p>
+          <div className="relative">
+            <textarea
+              id="wizard-problem"
+              rows={5}
+              placeholder="Ceritakan masalah yang kamu temukan..."
+              className={`${INPUT_CLASS} border-gray-200 resize-none pr-12`}
+              value={formData.problem}
+              onChange={(e) => setField("problem", e.target.value)}
+              onBlur={() => markTouched("problem")}
+              aria-describedby="wizard-problem-counter"
+            />
+            <div className="absolute top-2.5 right-2.5">
+              <VoiceInputButton onResult={(text) => appendVoiceResult("problem", text)} />
+            </div>
+          </div>
+          {problemLength < MIN_PROBLEM_SOLUTION_LENGTH && (
+            <p id="wizard-problem-counter" className="text-xs text-gray-400 font-medium">
+              {problemLength}/{MIN_PROBLEM_SOLUTION_LENGTH} karakter
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="wizard-solution" className="text-sm font-bold text-slate-700 block">
+            Usulan Solusi <span className="text-red-500">*</span>
+          </label>
+          <p className="text-sm text-gray-500">
+            Apa yang kamu usulkan? Apa dampaknya kalau dijalankan?
+          </p>
+          <div className="relative">
+            <textarea
+              id="wizard-solution"
+              rows={5}
+              placeholder="Ceritakan solusi yang kamu usulkan..."
+              className={`${INPUT_CLASS} border-gray-200 resize-none pr-12`}
+              value={formData.solution}
+              onChange={(e) => setField("solution", e.target.value)}
+              onBlur={() => markTouched("solution")}
+              aria-describedby="wizard-solution-counter"
+            />
+            <div className="absolute top-2.5 right-2.5">
+              <VoiceInputButton onResult={(text) => appendVoiceResult("solution", text)} />
+            </div>
+          </div>
+          {solutionLength < MIN_PROBLEM_SOLUTION_LENGTH && (
+            <p id="wizard-solution-counter" className="text-xs text-gray-400 font-medium">
+              {solutionLength}/{MIN_PROBLEM_SOLUTION_LENGTH} karakter
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // STEP 3 — Dampak Biaya (both fields optional, unchanged from today's form)
   const renderStep3 = () => (
     <div className="space-y-5">
@@ -556,8 +650,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
       case 1:
         return renderStep1();
       case 2:
-        // STEP 2 (Task 8): guided Problem/Solution textareas + voice input.
-        return renderPlaceholder("Problem & Solusi", "Langkah ini belum tersedia.");
+        return renderStep2();
       case 3:
         return renderStep3();
       case 4:
