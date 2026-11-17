@@ -58,6 +58,7 @@ export async function findSimilarSuggestions(params: {
   const query: Record<string, any> = {
     department: params.department,
     createdAt: { $gte: sixMonthsAgo },
+    status: { $ne: "Draft" },
   };
 
   if (params.excludeId) {

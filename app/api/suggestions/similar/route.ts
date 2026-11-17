@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import mongoose from "mongoose";
 import { authOptions } from "@/lib/auth";
 import { findSimilarSuggestions } from "@/lib/suggestionSimilarity";
 
@@ -16,6 +17,20 @@ export async function POST(req: NextRequest) {
     if (!title || !department) {
       return NextResponse.json(
         { error: "Missing required fields: title and department" },
+        { status: 400 }
+      );
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(department)) {
+      return NextResponse.json(
+        { error: "Invalid department" },
+        { status: 400 }
+      );
+    }
+
+    if (excludeId && !mongoose.Types.ObjectId.isValid(excludeId)) {
+      return NextResponse.json(
+        { error: "Invalid excludeId" },
         { status: 400 }
       );
     }
