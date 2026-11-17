@@ -2,14 +2,16 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface ISuggestion extends Document {
   title: string;
-  problem: string;
-  solution: string;
-  category: "Safety / 5S / Lingkungan" | "Quality / Product Improvement" | "Cost Down / Efisiensi Biaya Operasional";
+  problem?: string;
+  solution?: string;
+  category?: "Safety / 5S / Lingkungan" | "Quality / Product Improvement" | "Cost Down / Efisiensi Biaya Operasional";
   images: {
     before?: string;
     after?: string;
+    additional?: string[];
   };
-  status: "Pending" | "Approved" | "Rejected" | "Revision";
+  status: "Draft" | "Pending" | "Approved" | "Rejected" | "Revision";
+  submittedAt?: Date;
   pointsAwarded: number;
   costImpact: number;
   costEffective?: {
@@ -17,7 +19,7 @@ export interface ISuggestion extends Document {
     nominal?: number;
   };
   author: mongoose.Types.ObjectId;
-  department: mongoose.Types.ObjectId;
+  department?: mongoose.Types.ObjectId;
   comments: {
     text: string;
     author: mongoose.Types.ObjectId;
@@ -38,6 +40,23 @@ export interface ISuggestion extends Document {
       peopleDevelopment: number;
     };
   };
+  revisionHistory?: {
+    title: string;
+    problem: string;
+    solution: string;
+    category: "Safety / 5S / Lingkungan" | "Quality / Product Improvement" | "Cost Down / Efisiensi Biaya Operasional";
+    department: mongoose.Types.ObjectId;
+    costEffective?: {
+      explanation?: string;
+      nominal?: number;
+    };
+    images: {
+      before?: string;
+      after?: string;
+      additional?: string[];
+    };
+    editedAt: Date;
+  }[];
 }
 
 const SuggestionSchema = new Schema<ISuggestion>(
@@ -49,25 +68,26 @@ const SuggestionSchema = new Schema<ISuggestion>(
     },
     problem: {
       type: String,
-      required: true,
     },
     solution: {
       type: String,
-      required: true,
     },
     category: {
       type: String,
       enum: ["Safety / 5S / Lingkungan", "Quality / Product Improvement", "Cost Down / Efisiensi Biaya Operasional"],
-      required: true,
     },
     images: {
       before: { type: String },
       after: { type: String },
+      additional: [{ type: String }],
     },
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected", "Revision"],
+      enum: ["Draft", "Pending", "Approved", "Rejected", "Revision"],
       default: "Pending",
+    },
+    submittedAt: {
+      type: Date,
     },
     pointsAwarded: {
       type: Number,
@@ -89,7 +109,6 @@ const SuggestionSchema = new Schema<ISuggestion>(
     department: {
       type: Schema.Types.ObjectId,
       ref: "Department",
-      required: true,
     },
     comments: [
       {
@@ -113,6 +132,29 @@ const SuggestionSchema = new Schema<ISuggestion>(
         peopleDevelopment: { type: Number, default: 0, min: 0, max: 5 },
       },
     },
+    revisionHistory: [
+      {
+        title: { type: String, required: true },
+        problem: { type: String, required: true },
+        solution: { type: String, required: true },
+        category: {
+          type: String,
+          enum: ["Safety / 5S / Lingkungan", "Quality / Product Improvement", "Cost Down / Efisiensi Biaya Operasional"],
+          required: true,
+        },
+        department: { type: Schema.Types.ObjectId, ref: "Department", required: true },
+        costEffective: {
+          explanation: { type: String, trim: true },
+          nominal: { type: Number, default: 0 },
+        },
+        images: {
+          before: { type: String },
+          after: { type: String },
+          additional: [{ type: String }],
+        },
+        editedAt: { type: Date, default: Date.now, required: true },
+      },
+    ],
   },
   { timestamps: true }
 );
