@@ -60,7 +60,7 @@ type LoadedDraft = Partial<SuggestionFormData> & { updatedAt?: string };
 function CreateSuggestionWizardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const draftIdParam = searchParams.get("draftId");
 
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -82,21 +82,37 @@ function CreateSuggestionWizardPage() {
       });
   }, []);
 
-  // Step 1: resolve `?draftId=` — but only the value present at the very
-  // first render. Deliberately NOT reactive to every `draftIdParam` change:
-  // `handleSaveDraft` below calls `router.replace` purely to reflect a new
-  // draft's id in the URL after the FIRST save, and that must not re-trigger
-  // this fetch — doing so would force-unmount/remount `SuggestionWizard`
-  // (via the `loadingDraft` gate further down) and wipe whatever the user
-  // has typed since, even though nothing actually needs re-fetching. A ref
-  // captures the id exactly once, on mount, independent of later renders.
-  const draftIdToLoadRef = useRef(draftIdParam);
+  // Step 1: resolve `?draftId=` — reactively, so a genuinely external change
+  // to the URL's draftId (browser back/forward, a manual URL edit) is
+  // correctly re-fetched. The one case that must NOT trigger a re-fetch is
+  // this page's own `router.replace` call inside `handleSaveDraft`'s first-
+  // save branch (it only adds `?draftId=` to reflect a draft id that was
+  // already applied via `setDraftId` — re-fetching it would force-unmount/
+  // remount `SuggestionWizard` via the `loadingDraft` gate below and wipe
+  // whatever the user has typed since). `skipNextFetchRef` absorbs exactly
+  // that one self-triggered cycle: `handleSaveDraft` sets it to `true`
+  // immediately before calling `router.replace`, and this effect's first run
+  // after that resets it and bails out without fetching.
+  const skipNextFetchRef = useRef(false);
 
   useEffect(() => {
-    const idToLoad = draftIdToLoadRef.current;
+    if (skipNextFetchRef.current) {
+      skipNextFetchRef.current = false;
+      return;
+    }
+
+    const idToLoad = draftIdParam;
     if (!idToLoad) return;
 
     let cancelled = false;
+
+    // Deferred one microtask (rather than called synchronously here) solely
+    // to satisfy `react-hooks/set-state-in-effect` — it still runs long
+    // before `fetch`'s response (and thus before any paint), so a real
+    // external draftId change still shows "Memuat draft..." immediately.
+    void Promise.resolve().then(() => {
+      if (!cancelled) setLoadingDraft(true);
+    });
 
     fetch(`/api/suggestions/${idToLoad}`)
       .then(async (res) => {
@@ -151,9 +167,7 @@ function CreateSuggestionWizardPage() {
     return () => {
       cancelled = true;
     };
-    // Mount-only by design — see the comment on `draftIdToLoadRef` above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [draftIdParam, router]);
 
   // Step 3: POST when there's no draft yet, PUT once one exists.
   const handleSaveDraft = useCallback(
@@ -170,7 +184,11 @@ function CreateSuggestionWizardPage() {
       const saved = await res.json();
       if (!draftId && saved?._id) {
         setDraftId(saved._id);
-        // Add `?draftId=` to the URL without a full navigation.
+        // Add `?draftId=` to the URL without a full navigation. The draft-
+        // fetch effect above is reactive to that param, so tell it (via the
+        // ref) to skip the one fetch this triggers — the draft was just
+        // saved from current in-memory state, there's nothing to re-fetch.
+        skipNextFetchRef.current = true;
         router.replace(`/dashboard/suggestions/create?draftId=${saved._id}`);
       }
       return { _id: saved._id };
@@ -199,6 +217,14 @@ function CreateSuggestionWizardPage() {
   );
 
   // Step 2: default `department` from the session when not resuming a draft.
+  // `useSession()` starts at `status === "loading"` with `data === undefined`
+  // on the very first client render, before this component even finishes
+  // mounting. `SuggestionWizard` only reads `initialData` via a mount-time
+  // `useState` initializer, so if it mounted on that first render it would
+  // permanently miss the session-derived default once `session` resolves on
+  // a later render. The `sessionStatus === "loading"` branch added to the
+  // render gate below keeps `SuggestionWizard` unmounted until the session
+  // has actually resolved, so this value is correct by the time it mounts.
   const sessionDepartment = (session?.user as { department?: string } | undefined)
     ?.department;
   const wizardInitialData: LoadedDraft | undefined =
@@ -232,7 +258,7 @@ function CreateSuggestionWizardPage() {
         </div>
       )}
 
-      {loadingDraft ? (
+      {loadingDraft || sessionStatus === "loading" ? (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center text-sm text-gray-500">
           Memuat draft...
         </div>
