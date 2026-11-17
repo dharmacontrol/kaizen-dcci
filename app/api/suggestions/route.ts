@@ -8,77 +8,7 @@ import Department from "@/models/Department";
 import Role from "@/models/Role";
 import Notification from "@/models/Notification";
 import PointLog from "@/models/PointLog";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { existsSync } from "fs";
-import { randomUUID } from "crypto";
-
-// Allowlist of recognized image magic-byte signatures mapped to their
-// extensions. Anything that doesn't match one of these (including SVG,
-// which has no safe binary signature) is rejected.
-const IMAGE_EXTENSION_BY_TYPE: Record<string, string> = {
-  jpeg: ".jpg",
-  png: ".png",
-  webp: ".webp",
-  gif: ".gif",
-};
-
-/**
- * Determine the real image type of a buffer by inspecting its magic bytes,
- * rather than trusting the client-supplied Content-Type header. Returns the
- * file extension to use (e.g. ".jpg") or null if the content doesn't match
- * any recognized image signature.
- */
-async function detectImageExtension(buffer: Buffer): Promise<string | null> {
-  const header = buffer.subarray(0, 12);
-
-  // JPEG: FF D8 FF
-  if (header.length >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) {
-    return IMAGE_EXTENSION_BY_TYPE.jpeg;
-  }
-
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (header.length >= pngSignature.length && pngSignature.every((b, i) => header[i] === b)) {
-    return IMAGE_EXTENSION_BY_TYPE.png;
-  }
-
-  // WebP: "RIFF" at bytes 0-3 and "WEBP" at bytes 8-11
-  if (
-    header.length >= 12 &&
-    header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46 &&
-    header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50
-  ) {
-    return IMAGE_EXTENSION_BY_TYPE.webp;
-  }
-
-  // GIF: 47 49 46 38
-  if (header.length >= 4 && header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x38) {
-    return IMAGE_EXTENSION_BY_TYPE.gif;
-  }
-
-  return null;
-}
-
-/**
- * Build a safe, fully server-generated destination path for an uploaded
- * image inside uploadDir. The filename is never derived from user input
- * (file.name / file.type), only from a random UUID plus a validated
- * extension. As a defense-in-depth backstop, verifies the resolved path is
- * still contained within uploadDir before returning it.
- */
-function safeImagePath(uploadDir: string, ext: string): { filename: string; fullPath: string } {
-  const filename = `${randomUUID()}${ext}`;
-  const fullPath = path.join(uploadDir, filename);
-
-  const resolvedDir = path.resolve(uploadDir) + path.sep;
-  const resolvedPath = path.resolve(fullPath);
-  if (!resolvedPath.startsWith(resolvedDir)) {
-    throw new Error("Resolved upload path escapes upload directory");
-  }
-
-  return { filename, fullPath };
-}
+import { saveSuggestionImage, validateSuggestionImage } from "@/lib/suggestionUploads";
 
 export async function GET(req: NextRequest) {
   try {
@@ -152,17 +82,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Maximum of 3 additional images allowed" }, { status: 400 });
     }
 
-    const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
     const imagesToValidate = [beforeImage, afterImage, ...additionalImages].filter(
       (f): f is File => !!f && f.size > 0
     );
 
     for (const file of imagesToValidate) {
-      if (file.size > MAX_IMAGE_SIZE) {
-        return NextResponse.json({ error: "Image size must not exceed 5MB" }, { status: 400 });
-      }
-      if (!file.type.startsWith("image/")) {
-        return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
+      const validationError = validateSuggestionImage(file);
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
       }
     }
 
@@ -170,43 +97,20 @@ export async function POST(req: NextRequest) {
     let afterImagePath = "";
     const additionalImagePaths: string[] = [];
 
-    const uploadDir = path.join(process.cwd(), "public/uploads");
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    if (beforeImage && beforeImage.size > 0) {
-      const buffer = Buffer.from(await beforeImage.arrayBuffer());
-      const ext = await detectImageExtension(buffer);
-      if (!ext) {
-        return NextResponse.json({ error: "File bukan gambar yang valid" }, { status: 400 });
+    try {
+      if (beforeImage && beforeImage.size > 0) {
+        beforeImagePath = await saveSuggestionImage(beforeImage);
       }
-      const { filename, fullPath } = safeImagePath(uploadDir, ext);
-      await writeFile(fullPath, buffer);
-      beforeImagePath = `/uploads/${filename}`;
-    }
 
-    if (afterImage && afterImage.size > 0) {
-      const buffer = Buffer.from(await afterImage.arrayBuffer());
-      const ext = await detectImageExtension(buffer);
-      if (!ext) {
-        return NextResponse.json({ error: "File bukan gambar yang valid" }, { status: 400 });
+      if (afterImage && afterImage.size > 0) {
+        afterImagePath = await saveSuggestionImage(afterImage);
       }
-      const { filename, fullPath } = safeImagePath(uploadDir, ext);
-      await writeFile(fullPath, buffer);
-      afterImagePath = `/uploads/${filename}`;
-    }
 
-    for (let i = 0; i < additionalImages.length; i++) {
-      const file = additionalImages[i];
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const ext = await detectImageExtension(buffer);
-      if (!ext) {
-        return NextResponse.json({ error: "File bukan gambar yang valid" }, { status: 400 });
+      for (const file of additionalImages) {
+        additionalImagePaths.push(await saveSuggestionImage(file));
       }
-      const { filename, fullPath } = safeImagePath(uploadDir, ext);
-      await writeFile(fullPath, buffer);
-      additionalImagePaths.push(`/uploads/${filename}`);
+    } catch (err) {
+      return NextResponse.json({ error: "File bukan gambar yang valid" }, { status: 400 });
     }
 
     await connectToDatabase();
