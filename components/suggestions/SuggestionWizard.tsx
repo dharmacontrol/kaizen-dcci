@@ -304,7 +304,7 @@ function usePrefersReducedMotion(): boolean {
 }
 
 export default function SuggestionWizard(props: SuggestionWizardProps) {
-  const { initialData, departments, draftId, onSubmit, onSaveDraft } = props;
+  const { mode, initialData, departments, draftId, onSubmit, onSaveDraft } = props;
 
   const [currentStep, setCurrentStep] = useState(FIRST_STEP);
   const [formData, setFormData] = useState<SuggestionFormData>(() =>
@@ -1770,31 +1770,37 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
             disabled) for the entire round trip of `onSaveDraft`, which is
             the actual fix for the double-click-creates-two-drafts failure
             mode. Also disabled during final submit to avoid a save-draft
-            and a submit racing against each other. */}
-        <div className="w-full md:w-auto flex flex-col items-center gap-2">
-          {draftSaveError && (
-            <p className="text-xs text-red-600 font-semibold text-center">
-              {draftSaveError}
-            </p>
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={savingDraft || submitting}
-              className="w-full md:w-auto px-6 py-3 bg-blue-50 text-blue-700 border border-blue-100 font-bold rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              <Save className="w-4 h-4" />
-              {savingDraft ? "Menyimpan..." : "Simpan Draft"}
-            </button>
-            {draftSaved && (
-              <span className="text-sm font-bold text-emerald-600 flex items-center gap-1 shrink-0">
-                <CheckCircle2 className="w-4 h-4" />
-                Tersimpan
-              </span>
+            and a submit racing against each other.
+            STEP 13 (Task 13): an existing `Revision` suggestion is never
+            re-saved as a Draft, so this whole block — not just the button —
+            is omitted from the DOM entirely in `mode="revise"` rather than
+            merely hidden via CSS. */}
+        {mode !== "revise" && (
+          <div className="w-full md:w-auto flex flex-col items-center gap-2">
+            {draftSaveError && (
+              <p className="text-xs text-red-600 font-semibold text-center">
+                {draftSaveError}
+              </p>
             )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={savingDraft || submitting}
+                className="w-full md:w-auto px-6 py-3 bg-blue-50 text-blue-700 border border-blue-100 font-bold rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <Save className="w-4 h-4" />
+                {savingDraft ? "Menyimpan..." : "Simpan Draft"}
+              </button>
+              {draftSaved && (
+                <span className="text-sm font-bold text-emerald-600 flex items-center gap-1 shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Tersimpan
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {currentStep < LAST_STEP ? (
           <button
