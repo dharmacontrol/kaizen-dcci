@@ -41,11 +41,11 @@ export interface ISuggestion extends Document {
     };
   };
   revisionHistory?: {
-    title: string;
-    problem: string;
-    solution: string;
-    category: "Safety / 5S / Lingkungan" | "Quality / Product Improvement" | "Cost Down / Efisiensi Biaya Operasional";
-    department: mongoose.Types.ObjectId;
+    title?: string;
+    problem?: string;
+    solution?: string;
+    category?: "Safety / 5S / Lingkungan" | "Quality / Product Improvement" | "Cost Down / Efisiensi Biaya Operasional";
+    department?: mongoose.Types.ObjectId;
     costEffective?: {
       explanation?: string;
       nominal?: number;
@@ -134,15 +134,14 @@ const SuggestionSchema = new Schema<ISuggestion>(
     },
     revisionHistory: [
       {
-        title: { type: String, required: true },
-        problem: { type: String, required: true },
-        solution: { type: String, required: true },
+        title: { type: String },
+        problem: { type: String },
+        solution: { type: String },
         category: {
           type: String,
           enum: ["Safety / 5S / Lingkungan", "Quality / Product Improvement", "Cost Down / Efisiensi Biaya Operasional"],
-          required: true,
         },
-        department: { type: Schema.Types.ObjectId, ref: "Department", required: true },
+        department: { type: Schema.Types.ObjectId, ref: "Department" },
         costEffective: {
           explanation: { type: String, trim: true },
           nominal: { type: Number, default: 0 },
@@ -152,7 +151,7 @@ const SuggestionSchema = new Schema<ISuggestion>(
           after: { type: String },
           additional: [{ type: String }],
         },
-        editedAt: { type: Date, default: Date.now, required: true },
+        editedAt: { type: Date, default: Date.now },
       },
     ],
   },
