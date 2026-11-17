@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -362,14 +362,21 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
 
   /* --- STEP 5 (Task 10): duplicate-idea check ------------------------------
    * Fires the first time `currentStep` reaches 5, and again any time it
-   * reaches 5 after the user went back and changed title/problem/department
-   * (and cleared on every re-fire, so a dismissed warning from a previous
-   * visit never carries over). `formData.title/problem/department` and
-   * `draftId` are listed as dependencies alongside `currentStep` only so a
-   * change to them is "seen" by this effect the next time it matters — since
-   * Step 5 has no editable fields, they can only change while `currentStep`
-   * is NOT 5, in which case the guard below returns before fetching anything.
+   * reaches 5 after the user went back and changed title/problem/department.
+   * `formData.title/problem/department` and `draftId` are listed as
+   * dependencies alongside `currentStep` only so a change to them is "seen"
+   * by this effect the next time it matters — since Step 5 has no editable
+   * fields, they can only change while `currentStep` is NOT 5, in which case
+   * the guard below returns before fetching anything.
+   *
+   * `dismissed` is intentionally NOT cleared on every re-fire: if the new
+   * result's matches are the same set the user already dismissed (e.g. they
+   * went back to Step 1, changed nothing that affects similarity, and came
+   * back), the warning should stay hidden. It's only reset to `false` when
+   * the matched `_id` set actually differs from `prevMatchIdsRef`, i.e. there
+   * is genuinely new information to show. See Task 10 review Finding 2.
    */
+  const prevMatchIdsRef = useRef<string[]>([]);
   useEffect(() => {
     if (currentStep !== LAST_STEP) return;
     let cancelled = false;
@@ -391,11 +398,23 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
       .then((data) => {
         if (cancelled) return;
-        setSimilarCheck({
+        const matches: SimilarMatch[] = Array.isArray(data?.matches)
+          ? data.matches
+          : [];
+        const newIds = matches.map((match) => match._id).sort();
+        const previousIds = prevMatchIdsRef.current;
+        const sameAsPrevious =
+          newIds.length === previousIds.length &&
+          newIds.every((id, index) => id === previousIds[index]);
+        prevMatchIdsRef.current = newIds;
+        setSimilarCheck((prev) => ({
           status: "done",
-          matches: Array.isArray(data?.matches) ? data.matches : [],
-          dismissed: false,
-        });
+          matches,
+          // Keep whatever `dismissed` currently is when the match set is
+          // unchanged from last time; only force it back to `false` when
+          // there's a genuinely different set of matches to show.
+          dismissed: sameAsPrevious ? prev.dismissed : false,
+        }));
       })
       .catch(() => {
         if (cancelled) return;
@@ -1169,7 +1188,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
         {similarCheck.status === "done" &&
           similarCheck.matches.length > 0 &&
           !similarCheck.dismissed && (
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3">
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3 max-w-4xl">
               <div className="mt-0.5 text-amber-600 shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
