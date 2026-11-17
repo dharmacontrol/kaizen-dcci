@@ -1800,7 +1800,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
           <button
             type="button"
             onClick={handleNext}
-            disabled={!canGoNext}
+            disabled={!canGoNext || savingDraft}
             className="w-full md:w-auto px-8 py-3 bg-primary text-white font-bold rounded-xl shadow-md shadow-primary/20 hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none"
           >
             Lanjut
@@ -1819,7 +1819,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || savingDraft}
               className="w-full md:w-auto px-8 py-3 bg-primary text-white font-bold rounded-xl shadow-md shadow-primary/20 hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
             >
               <Send className="w-4 h-4" />
