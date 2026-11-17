@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import connectToDatabase from "@/lib/mongodb";
-import Suggestion from "@/models/Suggestion";
+import Suggestion, { ISuggestion } from "@/models/Suggestion";
 import User from "@/models/User";
 import Department from "@/models/Department";
 import Role from "@/models/Role";
@@ -48,24 +48,59 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    
+
+    const statusField = formData.get("status");
+    const status = statusField === null ? "Pending" : (statusField as string);
+    if (status !== "Draft" && status !== "Pending") {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
     const title = formData.get("title") as string;
     const problem = formData.get("problem") as string;
     const solution = formData.get("solution") as string;
-    const category = formData.get("category") as string;
+    const category = formData.get("category") as ISuggestion["category"];
     const departmentId = formData.get("department") as string;
     const costEffectiveExplanation = formData.get("costEffectiveExplanation") as string;
     const costEffectiveNominal = formData.get("costEffectiveNominal") as string;
-    
-    if (!title || !problem || !solution || !category || !departmentId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+
+    if (status === "Pending") {
+      if (!title || !problem || !solution || !category || !departmentId) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
+    } else {
+      if (!title) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
     }
 
     const beforeImage = formData.get("beforeImage") as File | null;
     const afterImage = formData.get("afterImage") as File | null;
+    const additionalImagesRaw = formData.getAll("additionalImages");
+    const additionalImages = additionalImagesRaw.filter(
+      (f): f is File => f instanceof File && f.size > 0
+    );
+
+    if (additionalImages.length > 3) {
+      return NextResponse.json({ error: "Maximum of 3 additional images allowed" }, { status: 400 });
+    }
+
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+    const imagesToValidate = [beforeImage, afterImage, ...additionalImages].filter(
+      (f): f is File => !!f && f.size > 0
+    );
+
+    for (const file of imagesToValidate) {
+      if (file.size > MAX_IMAGE_SIZE) {
+        return NextResponse.json({ error: "Image size must not exceed 5MB" }, { status: 400 });
+      }
+      if (!file.type.startsWith("image/")) {
+        return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 });
+      }
+    }
 
     let beforeImagePath = "";
     let afterImagePath = "";
+    const additionalImagePaths: string[] = [];
 
     const uploadDir = path.join(process.cwd(), "public/uploads");
     if (!existsSync(uploadDir)) {
@@ -86,7 +121,39 @@ export async function POST(req: NextRequest) {
       afterImagePath = `/uploads/${filename}`;
     }
 
+    for (let i = 0; i < additionalImages.length; i++) {
+      const file = additionalImages[i];
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const filename = `${Date.now()}-additional-${i}-${file.name.replace(/\s+/g, '-')}`;
+      await writeFile(path.join(uploadDir, filename), buffer);
+      additionalImagePaths.push(`/uploads/${filename}`);
+    }
+
     await connectToDatabase();
+
+    if (status === "Draft") {
+      const newSuggestion = await Suggestion.create({
+        title,
+        problem: problem || undefined,
+        solution: solution || undefined,
+        category: category || undefined,
+        costEffective: {
+          explanation: costEffectiveExplanation || "",
+          nominal: costEffectiveNominal ? Number(costEffectiveNominal) : 0,
+        },
+        images: {
+          before: beforeImagePath,
+          after: afterImagePath,
+          additional: additionalImagePaths,
+        },
+        status: "Draft",
+        author: session.user.id,
+        department: departmentId || undefined,
+        pointsAwarded: 0,
+      });
+
+      return NextResponse.json(newSuggestion, { status: 201 });
+    }
 
     const now = new Date();
     const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -118,8 +185,10 @@ export async function POST(req: NextRequest) {
       images: {
         before: beforeImagePath,
         after: afterImagePath,
+        additional: additionalImagePaths,
       },
       status: "Pending",
+      submittedAt: now,
       author: session.user.id,
       department: departmentId,
       pointsAwarded: participationPoints, // Initial points for submitting
@@ -147,10 +216,10 @@ export async function POST(req: NextRequest) {
     // Notify users with canManageSuggestions
     const managerRoles = await Role.find({ "permissions.canManageSuggestions": true }).select("_id");
     const managerRoleIds = managerRoles.map(r => r._id);
-    
+
     if (managerRoleIds.length > 0) {
       const managers = await User.find({ role: { $in: managerRoleIds } }).select("_id");
-      
+
       const notifications = managers.map(manager => ({
         recipient: manager._id,
         type: "INFO",
