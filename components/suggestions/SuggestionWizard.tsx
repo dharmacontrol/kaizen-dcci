@@ -61,6 +61,9 @@ export type SuggestionWizardProps = {
  *
  * Animation policy: the step-to-step transition below is the ONE orchestrated
  * animation in this flow. Do not add hover/entrance animations elsewhere.
+ *
+ * IMPORTANT: Step content fully unmounts/remounts on each navigation. See the
+ * unmount-consequence note near `visibleStep` before adding step-local state.
  * ========================================================================== */
 
 type StepDefinition = {
@@ -193,6 +196,9 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
   /* --- step transition (the one orchestrated animation) -------------------- */
   // `visibleStep` is the step actually mounted; it lags `currentStep` by one
   // exit animation so the outgoing content can animate out before unmounting.
+  // Consequence: step content fully unmounts/remounts on every step change — don't
+  // put anything that must survive navigation in step-local state; use `formData`
+  // (or lift state here) instead.
   const [visibleStep, setVisibleStep] = useState(FIRST_STEP);
   const [entering, setEntering] = useState(false);
   const [direction, setDirection] = useState<1 | -1>(1);
