@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
     // Validate max 5 suggestions per month
     const currentMonthSuggestions = await Suggestion.countDocuments({
       author: session.user.id,
+      status: { $ne: "Draft" },
       createdAt: { $gte: startOfMonth, $lte: endOfMonth }
     });
 
