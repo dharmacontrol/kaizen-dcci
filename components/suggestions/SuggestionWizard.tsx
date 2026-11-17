@@ -14,9 +14,11 @@ import {
   Info,
   Lightbulb,
   Plus,
+  Send,
   Wallet,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import VoiceInputButton from "./VoiceInputButton";
 import { compressImageFile } from "@/lib/compressImage";
 
@@ -175,7 +177,38 @@ function isStepComplete(step: number, data: SuggestionFormData): boolean {
   }
 }
 
+/**
+ * STEP 5 (Task 10): `props.onSubmit`'s rejection value isn't necessarily an
+ * `Error` — the page-level wrapper (Tasks 12/13) may reject with a plain
+ * `{ message: string }` (e.g. a quota-reached response body). Handle both
+ * shapes so the review step always has something readable to show, without
+ * ever throwing while rendering the error itself.
+ */
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim().length > 0) return message;
+  }
+  return fallback;
+}
+
 type QuotaInfo = { used: number; max: number };
+
+/** STEP 5 (Task 10): one match returned by `POST /api/suggestions/similar`. */
+type SimilarMatch = { _id: string; title: string; score: number };
+
+/**
+ * STEP 5 (Task 10): the duplicate-idea check's result for the current visit
+ * to Step 5. Transient per-visit UI state — see the `similarCheck` state
+ * declaration below for why it's still declared at the component's top
+ * level rather than inside `renderStep5`.
+ */
+type SimilarCheckState = {
+  status: "idle" | "loading" | "done" | "error";
+  matches: SimilarMatch[];
+  dismissed: boolean;
+};
 
 /** STEP 4 (Task 9): the three photo drop targets — "additional" is the single
  * in-progress "+ Tambah Foto" slot, not one slot per already-added photo. */
@@ -208,7 +241,7 @@ function usePrefersReducedMotion(): boolean {
 }
 
 export default function SuggestionWizard(props: SuggestionWizardProps) {
-  const { initialData, departments } = props;
+  const { initialData, departments, draftId, onSubmit } = props;
 
   const [currentStep, setCurrentStep] = useState(FIRST_STEP);
   const [formData, setFormData] = useState<SuggestionFormData>(() =>
@@ -218,6 +251,20 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
     Partial<Record<keyof SuggestionFormData, boolean>>
   >({});
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
+
+  // STEP 5 (Task 10): the duplicate-check result and the final-submit
+  // in-flight/error state. Both are transient, per-visit UI state — neither
+  // needs to survive navigation in `formData` — but they're declared here,
+  // at the component's top level, because the effect that fires the
+  // duplicate check (below) must run unconditionally on every render per the
+  // rules of hooks, not only while Step 5 happens to be mounted.
+  const [similarCheck, setSimilarCheck] = useState<SimilarCheckState>({
+    status: "idle",
+    matches: [],
+    dismissed: false,
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // STEP 4 (Task 9): transient, tile-local UI state for the photo step. None
   // of this needs to survive navigation (it's derived fresh from whatever
@@ -312,6 +359,53 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
       cancelled = true;
     };
   }, []);
+
+  /* --- STEP 5 (Task 10): duplicate-idea check ------------------------------
+   * Fires the first time `currentStep` reaches 5, and again any time it
+   * reaches 5 after the user went back and changed title/problem/department
+   * (and cleared on every re-fire, so a dismissed warning from a previous
+   * visit never carries over). `formData.title/problem/department` and
+   * `draftId` are listed as dependencies alongside `currentStep` only so a
+   * change to them is "seen" by this effect the next time it matters — since
+   * Step 5 has no editable fields, they can only change while `currentStep`
+   * is NOT 5, in which case the guard below returns before fetching anything.
+   */
+  useEffect(() => {
+    if (currentStep !== LAST_STEP) return;
+    let cancelled = false;
+    // No synchronous `setSimilarCheck(...)` call here (even to flip a
+    // "loading" flag) — only inside the `.then`/`.catch` callbacks below —
+    // so this stays a "subscribe to an external result" effect rather than
+    // the "setState synchronously within an effect" anti-pattern ESLint's
+    // `react-hooks/set-state-in-effect` flags.
+    fetch("/api/suggestions/similar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: formData.title,
+        problem: formData.problem,
+        department: formData.department,
+        ...(draftId ? { excludeId: draftId } : {}),
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
+      .then((data) => {
+        if (cancelled) return;
+        setSimilarCheck({
+          status: "done",
+          matches: Array.isArray(data?.matches) ? data.matches : [],
+          dismissed: false,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Advisory only — a failed duplicate check must never block the wizard.
+        setSimilarCheck({ status: "error", matches: [], dismissed: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep, formData.title, formData.problem, formData.department, draftId]);
 
   /* --- form helpers -------------------------------------------------------- */
   const setField = useCallback(
@@ -487,6 +581,22 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
   };
 
   const canGoNext = isStepComplete(currentStep, formData);
+
+  // STEP 5 (Task 10): final submit. `formData` is untouched on rejection —
+  // only `submitError` is set — so the user never loses what they entered.
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onSubmit(formData);
+    } catch (err) {
+      setSubmitError(
+        extractErrorMessage(err, "Gagal mengirim usulan. Silakan coba lagi.")
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   /* --- step content -------------------------------------------------------- */
 
@@ -1035,15 +1145,191 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
     );
   };
 
-  /** Placeholder for the steps that later tasks fill in. */
-  const renderPlaceholder = (label: string, note: string) => (
-    <div className="space-y-5">
-      <h3 className="text-lg font-bold text-slate-800 border-b border-gray-100 pb-2">
-        {label}
-      </h3>
-      <p className="text-sm text-gray-500">{note}</p>
-    </div>
-  );
+  // STEP 5 (Task 10): read-only review of every field from Steps 1-4, plus
+  // the non-blocking duplicate-idea warning. Visually mirrors
+  // `suggestions/[id]/page.tsx`'s problem/solution/cost-effective card
+  // sections (red-50/emerald-50/blue-50 bodies) so what's previewed here
+  // matches what's shown after submission. Final submit itself lives in the
+  // shared footer below (it needs to replace "Lanjut", which is rendered
+  // outside any `render*` function), not here.
+  const renderStep5 = () => {
+    const departmentName =
+      departments.find((d) => d._id === formData.department)?.name || "-";
+    const nominalValue = Number(formData.costEffectiveNominal) || 0;
+    const hasCostInfo =
+      formData.costEffectiveExplanation.trim().length > 0 || nominalValue > 0;
+
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-bold text-slate-800 border-b border-gray-100 pb-2">
+          Review Usulan
+        </h3>
+
+        {/* Duplicate-idea warning — dismissible, never blocks submit. */}
+        {similarCheck.status === "done" &&
+          similarCheck.matches.length > 0 &&
+          !similarCheck.dismissed && (
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3">
+              <div className="mt-0.5 text-amber-600 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="font-bold text-amber-900 text-sm">
+                  {similarCheck.matches.length} ide serupa sudah pernah diajukan di
+                  departemen ini
+                </h4>
+                <ul className="mt-2 space-y-1.5">
+                  {similarCheck.matches.map((match) => (
+                    <li key={match._id} className="min-w-0">
+                      <Link
+                        href={`/dashboard/suggestions/${match._id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-amber-800 underline decoration-amber-300 hover:text-amber-900 break-words"
+                      >
+                        {match.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSimilarCheck((prev) => ({ ...prev, dismissed: true }))
+                }
+                aria-label="Tutup peringatan ide serupa"
+                className="shrink-0 text-amber-500 hover:text-amber-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 md:p-6 space-y-6 max-w-4xl">
+          <div>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">
+              Judul Ide
+            </p>
+            <p className="text-base font-bold text-slate-800 break-words">
+              {formData.title || "-"}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">
+                Kategori
+              </p>
+              <p className="text-sm font-bold text-slate-800 break-words">
+                {formData.category || "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">
+                Departemen Tujuan
+              </p>
+              <p className="text-sm font-bold text-slate-800 break-words">
+                {departmentName}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-sm font-bold text-slate-800">
+              Kondisi Saat Ini (Masalah)
+            </h4>
+            <div className="p-4 bg-red-50/50 rounded-2xl border border-red-100 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap break-words">
+              {formData.problem || "-"}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-sm font-bold text-slate-800">Solusi yang Diusulkan</h4>
+            <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap break-words">
+              {formData.solution || "-"}
+            </div>
+          </div>
+
+          {hasCostInfo && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold text-slate-800">
+                Efisiensi Biaya (Cost Effective)
+              </h4>
+              <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                {nominalValue > 0 && (
+                  <p className="font-bold text-blue-800 mb-2">
+                    Estimasi Hemat: Rp {nominalValue.toLocaleString("id-ID")}
+                  </p>
+                )}
+                {formData.costEffectiveExplanation && (
+                  <p>{formData.costEffectiveExplanation}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-bold text-slate-800">Dokumentasi Foto</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <span className="inline-block px-2.5 py-1 bg-red-100 text-red-700 text-[11px] font-bold rounded-full">
+                  BEFORE
+                </span>
+                <div className="aspect-video bg-gray-50 rounded-xl border border-gray-200 overflow-hidden flex items-center justify-center">
+                  {beforeImagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={beforeImagePreview}
+                      alt="Pratinjau foto before"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-400 font-medium">
+                      Tidak ada foto
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-full">
+                  AFTER
+                </span>
+                <div className="aspect-video bg-gray-50 rounded-xl border border-gray-200 overflow-hidden flex items-center justify-center">
+                  {afterImagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={afterImagePreview}
+                      alt="Pratinjau foto after"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-400 font-medium">
+                      Tidak ada foto
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {additionalImagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {additionalImagePreviews.map((url, index) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={`additional-preview-${index}`}
+                    src={url}
+                    alt={`Foto pendukung ${index + 1}`}
+                    className="aspect-square w-full rounded-xl border border-gray-200 object-cover"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderStepContent = () => {
     switch (renderedStep) {
@@ -1056,8 +1342,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
       case 4:
         return renderStep4();
       case 5:
-        // STEP 5 (Task 10): review summary, duplicate check, final submit.
-        return renderPlaceholder("Review", "Langkah ini belum tersedia.");
+        return renderStep5();
       default:
         return null;
     }
@@ -1159,14 +1444,14 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
         <button
           type="button"
           onClick={() => goToStep(currentStep - 1)}
-          disabled={currentStep === FIRST_STEP}
+          disabled={currentStep === FIRST_STEP || submitting}
           className="w-full md:w-auto px-6 py-3 bg-white border border-gray-200 text-slate-600 font-bold rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-white"
         >
           <ArrowLeft className="w-4 h-4" />
           Kembali
         </button>
 
-        {currentStep < LAST_STEP && (
+        {currentStep < LAST_STEP ? (
           <button
             type="button"
             onClick={handleNext}
@@ -1176,6 +1461,26 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
             Lanjut
             <ArrowRight className="w-4 h-4" />
           </button>
+        ) : (
+          // STEP 5 (Task 10): final submit. The duplicate-idea warning above
+          // is advisory only — dismissing it, or just ignoring it, never
+          // disables this button.
+          <div className="w-full md:w-auto flex flex-col items-stretch md:items-end gap-2">
+            {submitError && (
+              <p className="text-sm text-red-600 font-semibold text-center md:text-right">
+                {submitError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="w-full md:w-auto px-8 py-3 bg-primary text-white font-bold rounded-xl shadow-md shadow-primary/20 hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <Send className="w-4 h-4" />
+              {submitting ? "Mengirim..." : "Ajukan Suggestion"}
+            </button>
+          </div>
         )}
       </div>
     </div>
