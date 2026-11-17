@@ -792,12 +792,13 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
 
   // STEP 4 (Task 9): Before/After + up to 3 supporting photos.
   const renderStep4 = () => {
-    // A single before/after drop tile. When no file is stored, the whole
-    // dashed box IS the <label> (clicking anywhere opens the picker, matching
-    // today's create-page tiles); once a compressed file is stored, the box
-    // becomes a plain <div> showing a thumbnail + a standalone remove button,
-    // so there's no ambiguity between "click tile to replace" and "click X to
-    // remove" — remove first, then pick again.
+    // A single before/after drop tile. The dashed box is always the <label>
+    // (clicking anywhere opens the picker to pick/replace the photo, matching
+    // today's create-page tiles), whether or not a file is already stored.
+    // Once a file is stored, a standalone remove (X) button sits on top of the
+    // tile; its onClick stops propagation (and prevents default) so clicking
+    // it removes the photo without also bubbling the click to the label and
+    // reopening the file picker.
     const renderBeforeAfterTile = (
       slot: "before" | "after",
       label: string,
@@ -841,7 +842,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
           <label className="text-sm font-bold text-slate-700 block">{label}</label>
 
           {file && previewUrl ? (
-            <div className={boxClassName} {...dragHandlers}>
+            <label className={`cursor-pointer ${boxClassName}`} {...dragHandlers}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewUrl}
@@ -851,13 +852,29 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
               <p className="text-xs text-gray-500 truncate max-w-full">{file.name}</p>
               <button
                 type="button"
-                onClick={() => removeBeforeAfterImage(slot)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  removeBeforeAfterImage(slot);
+                }}
                 aria-label={`Hapus ${label}`}
                 className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-200 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
-            </div>
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                capture="environment"
+                disabled={status.compressing}
+                onChange={(e) => {
+                  const selected = e.target.files?.[0];
+                  e.target.value = "";
+                  if (selected) handleBeforeAfterFile(slot, selected);
+                }}
+              />
+            </label>
           ) : (
             <label className={`cursor-pointer ${boxClassName}`} {...dragHandlers}>
               <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-400 mb-3">
@@ -875,6 +892,7 @@ export default function SuggestionWizard(props: SuggestionWizardProps) {
                 type="file"
                 className="hidden"
                 accept="image/*"
+                capture="environment"
                 disabled={status.compressing}
                 onChange={(e) => {
                   const selected = e.target.files?.[0];
