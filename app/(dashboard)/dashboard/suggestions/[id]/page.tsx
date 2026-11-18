@@ -266,6 +266,53 @@ export default function SuggestionDetailPage() {
               </div>
             )}
 
+            {/* Riwayat Revisi */}
+            {suggestion.revisionHistory && suggestion.revisionHistory.length > 0 && (
+              <div className="space-y-4 pt-6 border-t border-gray-100">
+                <h3 className="text-base font-bold text-slate-800">Riwayat Revisi</h3>
+                <div className="space-y-3">
+                  {suggestion.revisionHistory.map((revision: any, idx: number) => (
+                    <details key={idx} className="cursor-pointer group">
+                      <summary className="font-semibold text-slate-700 py-3 px-4 bg-gray-50 rounded-2xl border border-gray-200 hover:bg-gray-100 transition-colors list-none flex items-center justify-between select-none">
+                        <span>Revisi {suggestion.revisionHistory.length - idx}: {formatDate(revision.editedAt)}</span>
+                        <span className="transform group-open:rotate-180 transition-transform text-gray-500">▼</span>
+                      </summary>
+                      <div className="mt-3 space-y-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Kategori (saat edit)</p>
+                            <p className="text-sm font-bold text-slate-800">{revision.category?.split('/')[0]?.trim() || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-2">Departemen (saat edit)</p>
+                            <p className="text-sm font-bold text-slate-800">{revision.department?.name || "-"}</p>
+                          </div>
+                        </div>
+                        {revision.title && (
+                          <div className="space-y-2">
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Judul</p>
+                            <p className="text-sm text-slate-700 leading-relaxed">{revision.title}</p>
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Masalah (saat edit)</p>
+                          <div className="p-4 bg-red-50/50 rounded-2xl border border-red-100 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">
+                            {revision.problem}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Solusi (saat edit)</p>
+                          <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">
+                            {revision.solution}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {suggestion.status === "Approved" && suggestion.assessment && (
               <div className="space-y-4 pt-6 border-t border-gray-100">
                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">

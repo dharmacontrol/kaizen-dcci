@@ -18,8 +18,12 @@ export async function GET(req: NextRequest) {
     }
 
     await connectToDatabase();
-    
-    const suggestions = await Suggestion.find()
+
+    // Drafts are private scratch work and must not be exported unless they
+    // belong to the requesting user — same scoping as GET /api/suggestions.
+    const suggestions = await Suggestion.find({
+      $or: [{ status: { $ne: "Draft" } }, { author: session.user.id }],
+    })
       .populate("author", "name nik")
       .populate("department", "name")
       .sort({ createdAt: -1 })

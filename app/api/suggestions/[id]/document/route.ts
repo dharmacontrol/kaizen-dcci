@@ -111,8 +111,8 @@ export async function GET(
     if (suggestion.costEffective?.explanation) {
       setCell("C37", stripHtml(suggestion.costEffective.explanation));
     }
-    if (suggestion.costEffective?.nominal > 0) {
-      setCell("C38", `Penghematan: Rp ${suggestion.costEffective.nominal.toLocaleString("id-ID")}`);
+    if ((suggestion.costEffective?.nominal ?? 0) > 0) {
+      setCell("C38", `Penghematan: Rp ${(suggestion.costEffective?.nominal ?? 0).toLocaleString("id-ID")}`);
     }
 
     // === KOLOM PENILAIAN #1 ===
