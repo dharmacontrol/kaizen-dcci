@@ -128,19 +128,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         DESKTOP SIDEBAR
         ========================================================================
       */}
-      <aside className={`hidden md:flex flex-col bg-primary border-r border-black/10 sticky top-0 h-screen transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-        <div className={`h-16 flex items-center justify-center md:justify-start border-b border-white/10 overflow-hidden shrink-0 ${sidebarOpen ? 'px-4' : 'px-3'}`}>
-          <div className={`relative h-9 bg-white rounded-lg shadow-sm p-1.5 shrink-0 transition-all duration-300 ${sidebarOpen ? 'w-[140px]' : 'w-9'}`}>
-            <Image src="/assets/logo.png" alt="DCCI Logo" fill className={`object-contain ${sidebarOpen ? 'object-left' : 'object-center'}`} />
+      <aside
+        className={`hidden md:flex flex-col sticky top-0 h-screen shadow-[4px_0_24px_rgba(0,0,0,0.08)] transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}
+        style={{ background: "linear-gradient(185deg, #14103F 0%, #1C176F 100%)" }}
+      >
+        <div className={`h-16 flex items-center shrink-0 ${sidebarOpen ? 'px-5 justify-start' : 'px-0 justify-center'}`}>
+          <div className={`inline-flex items-center bg-white rounded-lg shadow-sm shrink-0 overflow-hidden ${sidebarOpen ? 'px-3 py-2' : 'w-9 h-9 justify-start pl-1.5'}`}>
+            <Image
+              src="/assets/logo.png"
+              alt="DCCI"
+              width={320}
+              height={61}
+              className={sidebarOpen ? 'h-[22px] w-auto' : 'h-[26px] w-auto'}
+            />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-5 overflow-x-hidden">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {canCreateSuggestions && (
-            <div className={`px-3 pb-5 ${!sidebarOpen && 'flex justify-center'}`}>
+            <div className={`px-3 pt-2 pb-5 ${!sidebarOpen && 'flex justify-center'}`}>
               <Link
                 href="/dashboard/suggestions/create"
-                className={`flex items-center bg-white text-primary font-bold rounded-xl shadow-sm hover:bg-indigo-50 transition-colors ${
+                className={`flex items-center bg-white text-primary font-bold rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.25)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:-translate-y-px transition-all ${
                   sidebarOpen ? 'w-full justify-center gap-2 px-4 py-2.5' : 'w-11 h-11 justify-center'
                 }`}
                 title={!sidebarOpen ? "Buat Suggestion" : undefined}
@@ -151,29 +160,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
 
-          {sidebarOpen && (
-            <div className="px-5 mb-2 text-[11px] font-bold text-white/40 uppercase tracking-widest whitespace-nowrap">
-              Menu
-            </div>
-          )}
-          <nav className="px-3 space-y-1">
+          <nav className="px-3 space-y-0.5">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href || pathname?.startsWith(link.href + '/');
+              // "/dashboard" is a prefix of every other dashboard route, so
+              // it needs an exact match while every other link still uses
+              // startsWith to stay active on its own nested pages.
+              const isActive = link.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname === link.href || pathname?.startsWith(link.href + '/');
               return (
                 <Link
                   key={link.name}
                   href={link.href}
-                  className={`relative flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                    isActive
-                      ? "bg-white text-primary font-semibold shadow-sm"
-                      : "text-indigo-100/70 hover:bg-white/10 hover:text-white"
-                  } ${!sidebarOpen && 'justify-center'}`}
+                  className={`relative flex items-center h-10 rounded-lg transition-colors duration-150 ${
+                    isActive ? "text-white font-semibold" : "text-indigo-200/60 hover:text-white"
+                  } ${sidebarOpen ? 'pl-4 pr-3' : 'justify-center'}`}
                   title={!sidebarOpen ? link.name : undefined}
                 >
-                  <link.icon className={`w-5 h-5 shrink-0 ${isActive ? "text-primary" : "text-indigo-200/60"} ${sidebarOpen && 'mr-3'}`} />
-                  {sidebarOpen && <span className="whitespace-nowrap">{link.name}</span>}
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-white" />
+                  )}
+                  <link.icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? "text-white" : "text-indigo-300/50"} ${sidebarOpen && 'mr-3'}`} />
+                  {sidebarOpen && <span className="text-sm whitespace-nowrap">{link.name}</span>}
                   {!!link.badge && link.badge > 0 && (
-                    <span className="absolute top-1 right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none shadow-sm">
+                    <span className={`bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none ${
+                      sidebarOpen ? 'ml-auto' : 'absolute top-0.5 right-1.5'
+                    }`}>
                       {link.badge > 99 ? '99+' : link.badge}
                     </span>
                   )}
@@ -183,14 +195,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </nav>
         </div>
 
-        <div className="p-4 border-t border-white/10 overflow-hidden shrink-0">
+        <div className="p-3 shrink-0 space-y-1">
+          <div className={`flex items-center rounded-xl bg-white/5 ${sidebarOpen ? 'gap-3 px-3 py-2.5' : 'justify-center py-2.5'}`}>
+            <div className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center font-bold text-xs font-display shrink-0">
+              {(session?.user?.name || "?").split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+            </div>
+            {sidebarOpen && (
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{session?.user?.name || "..."}</p>
+                <p className="text-xs text-indigo-300/60 truncate">{session?.user?.role || ""}</p>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className={`w-full flex items-center px-3 py-2.5 rounded-xl text-red-200 hover:bg-white/10 hover:text-red-100 transition-all duration-200 ${!sidebarOpen && 'justify-center'}`}
+            className={`w-full flex items-center h-10 rounded-lg text-indigo-200/60 hover:bg-white/5 hover:text-red-300 transition-colors duration-150 ${sidebarOpen ? 'pl-4 pr-3' : 'justify-center'}`}
             title={!sidebarOpen ? "Sign Out" : undefined}
           >
-            <LogOut className={`w-5 h-5 shrink-0 ${sidebarOpen && 'mr-3'}`} />
-            {sidebarOpen && <span className="font-medium text-sm whitespace-nowrap">Sign Out</span>}
+            <LogOut className={`w-[18px] h-[18px] shrink-0 ${sidebarOpen && 'mr-3'}`} />
+            {sidebarOpen && <span className="text-sm whitespace-nowrap">Sign Out</span>}
           </button>
         </div>
       </aside>
@@ -414,7 +437,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
               <nav className="px-4 space-y-1">
                 {navLinks.map((link) => {
-                  const isActive = pathname === link.href || pathname?.startsWith(link.href + '/');
+                  const isActive = link.href === "/dashboard"
+                    ? pathname === "/dashboard"
+                    : pathname === link.href || pathname?.startsWith(link.href + '/');
                   return (
                     <Link
                       key={link.name}
