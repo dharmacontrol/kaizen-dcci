@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, Filter, Download, MoreVertical, Eye, Pencil, CheckCircle, XCircle } from "lucide-react";
+import { Search, Filter, Download, Eye, Pencil, MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 
 const STATUS_OPTIONS = ["All Statuses", "Draft", "Pending", "Revision", "Approved", "Rejected"];
@@ -39,17 +39,24 @@ export default function AllSuggestionsPage() {
           <p className="text-sm text-gray-500 mt-1">Master view of all ideas submitted across the company.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button 
+          <button
             onClick={() => window.open('/api/suggestions/export', '_blank')}
             className="flex items-center gap-2 bg-white border border-gray-200 text-sm font-medium rounded-xl px-4 py-2 text-slate-700 hover:bg-gray-50 transition-colors shadow-sm"
           >
             <Download className="w-4 h-4" />
             Export CSV
           </button>
-          <button className="flex items-center gap-2 bg-primary text-white text-sm font-medium rounded-xl px-4 py-2 hover:bg-primary/90 transition-colors shadow-sm">
+          <button className="flex items-center gap-2 bg-white border border-gray-200 text-sm font-medium rounded-xl px-4 py-2 text-slate-700 hover:bg-gray-50 transition-colors shadow-sm">
             <Filter className="w-4 h-4" />
             Advanced Filters
           </button>
+          <Link
+            href="/dashboard/suggestions/create"
+            className="flex items-center gap-2 bg-primary text-white text-sm font-medium rounded-xl px-4 py-2 hover:bg-primary/90 transition-colors shadow-sm"
+          >
+            <MessageSquarePlus className="w-4 h-4" />
+            Buat Suggestion
+          </Link>
         </div>
       </div>
 
