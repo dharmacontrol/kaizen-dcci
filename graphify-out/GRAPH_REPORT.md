@@ -1,29 +1,29 @@
-# Graph Report - suggestions-system-dcci  (2026-11-17)
+# Graph Report - suggestions-system-dcci  (2026-11-18)
 
 ## Corpus Check
-- 96 files · ~517,892 words
+- 107 files · ~546,059 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 6 file(s) not represented in the graph (top: (none) 3, .ico 2, .css 1)
 
 ## Summary
-- 322 nodes · 567 edges · 29 communities (14 shown, 15 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
+- 495 nodes · 784 edges · 42 communities (24 shown, 18 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 5 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c348e01d`
+- Built from commit: `560da401`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - lucide-react
-- suggestions/route.ts
+- suggestions/[id]/route.ts
 - connectToDatabase
 - package.json
 - compilerOptions
-- news/[id]/route.ts
-- dependencies
-- Announcement.ts
+- What You Must Do When Invoked
+- VoiceInputButton.tsx
+- File Structure
 - app/layout.tsx
 - File Structure
 - create_god.js
@@ -41,63 +41,78 @@
 - app/terms/page.tsx
 - dashboard/page.tsx
 - dashboard/terms/page.tsx
+- Design: Role-Aware Dashboard
+- SuggestionWizard.tsx
+- graphify reference: extra exports and benchmark
+- suggestionSimilarity.ts
+- graphify reference: query, path, explain
+- FR.MI-001-26 Form Suggestion System_4bde853e.md
+- graphify reference: add a URL and watch a folder
+- graphify reference: commit hook and native CLAUDE.md integration
+- graphify reference: incremental update and cluster-only
+- graphify reference: GitHub clone and cross-repo merge
+- graphify reference: transcribe video and audio
+- suggestions/page.tsx
+- rules/graphify.md
+- extraction-spec.md
+- workflows/graphify.md
 
 ## God Nodes (most connected - your core abstractions)
-1. `connectToDatabase()` - 71 edges
-2. `react` - 24 edges
-3. `authOptions` - 24 edges
-4. `next-auth` - 22 edges
-5. `lucide-react` - 20 edges
-6. `File Structure` - 16 edges
-7. `compilerOptions` - 16 edges
-8. `mongoose` - 13 edges
-9. `Design: Advanced Suggestion Submission Flow` - 9 edges
-10. `Role` - 9 edges
+1. `connectToDatabase()` - 66 edges
+2. `react` - 27 edges
+3. `authOptions` - 26 edges
+4. `next-auth` - 24 edges
+5. `lucide-react` - 23 edges
+6. `compilerOptions` - 16 edges
+7. `File Structure` - 16 edges
+8. `mongoose` - 14 edges
+9. `What You Must Do When Invoked` - 12 edges
+10. `/graphify` - 10 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `POST()` --calls--> `connectToDatabase()`  [EXTRACTED]
-  app/api/suggestions/[id]/comments/route.ts → lib/mongodb.ts
-- `GET()` --calls--> `connectToDatabase()`  [EXTRACTED]
-  app/api/suggestions/[id]/document/route.ts → lib/mongodb.ts
 - `GET()` --calls--> `connectToDatabase()`  [EXTRACTED]
   app/api/suggestions/[id]/route.ts → lib/mongodb.ts
 - `PATCH()` --calls--> `connectToDatabase()`  [EXTRACTED]
   app/api/suggestions/[id]/route.ts → lib/mongodb.ts
-- `POST()` --calls--> `connectToDatabase()`  [EXTRACTED]
-  app/api/suggestions/route.ts → lib/mongodb.ts
+- `GET()` --calls--> `connectToDatabase()`  [EXTRACTED]
+  app/api/notifications/route.ts → lib/mongodb.ts
+- `PATCH()` --calls--> `connectToDatabase()`  [EXTRACTED]
+  app/api/notifications/route.ts → lib/mongodb.ts
+- `GET()` --calls--> `connectToDatabase()`  [EXTRACTED]
+  app/api/news/[id]/route.ts → lib/mongodb.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (29 total, 15 thin omitted)
+## Communities (42 total, 18 thin omitted)
 
-### Community 1 - "suggestions/route.ts"
-Cohesion: 0.10
-Nodes (16): POST(), GET(), GET(), PATCH(), POST(), DepartmentSchema, IDepartment, INotification (+8 more)
+### Community 1 - "suggestions/[id]/route.ts"
+Cohesion: 0.12
+Nodes (20): dynamic, GET(), PATCH(), GET(), PATCH(), PUT(), GET(), POST() (+12 more)
 
 ### Community 2 - "connectToDatabase"
-Cohesion: 0.08
-Nodes (45): dynamic, GET(), DELETE(), PATCH(), dynamic, GET(), POST(), handler (+37 more)
+Cohesion: 0.06
+Nodes (63): dynamic, GET(), DELETE(), PATCH(), dynamic, GET(), POST(), POST() (+55 more)
 
 ### Community 3 - "package.json"
-Cohesion: 0.06
-Nodes (31): POST(), ReactQuill, name, private, scripts, build, dev, lint (+23 more)
+Cohesion: 0.04
+Nodes (42): dependencies, bcryptjs, exceljs, lucide-react, mongoose, next, next-auth, nodemailer (+34 more)
 
 ### Community 4 - "compilerOptions"
 Cohesion: 0.11
 Nodes (18): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+10 more)
 
-### Community 5 - "news/[id]/route.ts"
-Cohesion: 0.23
-Nodes (9): DELETE(), GET(), PATCH(), GET(), POST(), INews, News, NewsSchema (+1 more)
+### Community 5 - "What You Must Do When Invoked"
+Cohesion: 0.08
+Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
-### Community 6 - "dependencies"
-Cohesion: 0.13
-Nodes (15): dependencies, bcryptjs, exceljs, lucide-react, mongoose, next, next-auth, nodemailer (+7 more)
+### Community 6 - "VoiceInputButton.tsx"
+Cohesion: 0.19
+Nodes (14): getServerSupportSnapshot(), getSpeechRecognitionConstructor(), getSupportSnapshot(), SpeechRecognitionAlternativeLike, SpeechRecognitionConstructor, SpeechRecognitionEventLike, SpeechRecognitionLike, SpeechRecognitionResultLike (+6 more)
 
-### Community 7 - "Announcement.ts"
-Cohesion: 0.50
-Nodes (3): Announcement, AnnouncementSchema, IAnnouncement
+### Community 7 - "File Structure"
+Cohesion: 0.15
+Nodes (12): File Structure, Global Constraints, Review Focus, Role-Aware Dashboard Implementation Plan, Task 1: `useCountUp` hook, Task 2: Admin system-health endpoint, Task 3: Reviewer "needs your review" widget, Task 4: Admin system-health widget (+4 more)
 
 ### Community 8 - "app/layout.tsx"
 Cohesion: 0.22
@@ -112,7 +127,7 @@ Cohesion: 0.29
 Nodes (5): bcrypt, envPath, fs, mongoose, path
 
 ### Community 11 - "profile/page.tsx"
-Cohesion: 0.40
+Cohesion: 0.33
 Nodes (3): permissions, Profile, role
 
 ### Community 12 - "next-auth.d.ts"
@@ -127,25 +142,65 @@ Nodes (12): A. Duplicate detection method, Anti-Goals, Approaches Considered, B.
 Cohesion: 0.18
 Nodes (11): devDependencies, eslint, eslint-config-next, tailwindcss, @tailwindcss/postcss, @types/bcryptjs, @types/node, @types/react (+3 more)
 
+### Community 21 - "RichTextEditor.tsx"
+Cohesion: 0.24
+Nodes (4): ReactQuill, RichTextEditor(), RichTextEditorProps, react-quill-new
+
+### Community 27 - "Design: Role-Aware Dashboard"
+Cohesion: 0.17
+Nodes (11): A. How to gate dashboard sections per role, Approaches Considered, B. Where the Admin system-health numbers come from, C. Count-up animation, Constraints, Decided, Design: Role-Aware Dashboard, Goals (+3 more)
+
+### Community 28 - "SuggestionWizard.tsx"
+Cohesion: 0.07
+Nodes (40): buildSuggestionFormData(), CreateSuggestionWizardPage(), Department, LoadedDraft, readErrorMessage(), buildResubmitFormData(), Department, EditRevisionSuggestionPage() (+32 more)
+
+### Community 29 - "graphify reference: extra exports and benchmark"
+Cohesion: 0.22
+Nodes (8): graphify reference: extra exports and benchmark, Step 6b - Wiki (only if --wiki flag), Step 7 - Neo4j export (only if --neo4j or --neo4j-push flag), Step 7a - FalkorDB export (only if --falkordb or --falkordb-push flag), Step 7b - SVG export (only if --svg flag), Step 7c - GraphML export (only if --graphml flag), Step 7d - MCP server (only if --mcp flag), Step 8 - Token reduction benchmark (only if total_words > 5000)
+
+### Community 30 - "suggestionSimilarity.ts"
+Cohesion: 0.48
+Nodes (5): POST(), findSimilarSuggestions(), jaccardSimilarity(), STOPWORDS, tokenize()
+
+### Community 31 - "graphify reference: query, path, explain"
+Cohesion: 0.33
+Nodes (5): For /graphify explain, For /graphify path, graphify reference: query, path, explain, Step 0 — Constrained query expansion (REQUIRED before traversal), Step 1 — Traversal
+
+### Community 32 - "FR.MI-001-26 Form Suggestion System_4bde853e.md"
+Cohesion: 0.33
+Nodes (5): Sheet: Form, Sheet: Matrix #1, Sheet: MatriX #2, Sheet: Sheet1, Sheet: Sheet3
+
+### Community 33 - "graphify reference: add a URL and watch a folder"
+Cohesion: 0.50
+Nodes (3): For /graphify add, For --watch, graphify reference: add a URL and watch a folder
+
+### Community 34 - "graphify reference: commit hook and native CLAUDE.md integration"
+Cohesion: 0.50
+Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify reference: commit hook and native CLAUDE.md integration
+
+### Community 35 - "graphify reference: incremental update and cluster-only"
+Cohesion: 0.50
+Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
+
 ## Knowledge Gaps
-- **137 isolated node(s):** `Global Constraints`, `Testing Approach`, `Review Focus`, `Task 1: Suggestion model schema changes`, `Task 2: Quota endpoint using `submittedAt`` (+132 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 173 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **15 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **234 isolated node(s):** `graphify`, `Usage`, `What graphify is for`, `Step 0 - GitHub repos and multi-path merge (only if a URL or several paths)`, `Step 1 - Ensure graphify is installed` (+229 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 285 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `next-auth` connect `connectToDatabase` to `suggestions/route.ts`, `package.json`, `next-auth.d.ts`, `news/[id]/route.ts`?**
-  _High betweenness centrality (0.165) - this node is a cross-community bridge._
-- **Why does `react` connect `react` to `lucide-react`, `package.json`, `app/layout.tsx`, `profile/page.tsx`, `RichTextEditor.tsx`, `roles/page.tsx`, `app/terms/page.tsx`, `reset-password/page.tsx`, `dashboard/page.tsx`, `dashboard/terms/page.tsx`, `leaderboard/page.tsx`, `suggestions/create/page.tsx`?**
-  _High betweenness centrality (0.146) - this node is a cross-community bridge._
-- **Why does `mongoose` connect `suggestions/route.ts` to `connectToDatabase`, `package.json`, `news/[id]/route.ts`, `Announcement.ts`, `create_god.js`?**
-  _High betweenness centrality (0.114) - this node is a cross-community bridge._
-- **What connects `Global Constraints`, `Testing Approach`, `Review Focus` to the rest of the system?**
-  _137 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `suggestions/route.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.10344827586206896 - nodes in this community are weakly interconnected._
+- **Why does `react` connect `react` to `lucide-react`, `package.json`, `suggestions/page.tsx`, `VoiceInputButton.tsx`, `app/layout.tsx`, `profile/page.tsx`, `RichTextEditor.tsx`, `roles/page.tsx`, `app/terms/page.tsx`, `reset-password/page.tsx`, `dashboard/page.tsx`, `dashboard/terms/page.tsx`, `SuggestionWizard.tsx`?**
+  _High betweenness centrality (0.139) - this node is a cross-community bridge._
+- **Why does `next-auth` connect `connectToDatabase` to `suggestions/[id]/route.ts`, `package.json`, `next-auth.d.ts`, `suggestionSimilarity.ts`?**
+  _High betweenness centrality (0.123) - this node is a cross-community bridge._
+- **Why does `lucide-react` connect `lucide-react` to `package.json`, `suggestions/page.tsx`, `VoiceInputButton.tsx`, `profile/page.tsx`, `react`, `RichTextEditor.tsx`, `roles/page.tsx`, `app/terms/page.tsx`, `dashboard/page.tsx`, `dashboard/terms/page.tsx`, `SuggestionWizard.tsx`?**
+  _High betweenness centrality (0.108) - this node is a cross-community bridge._
+- **What connects `graphify`, `Usage`, `What graphify is for` to the rest of the system?**
+  _234 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `suggestions/[id]/route.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.12169312169312169 - nodes in this community are weakly interconnected._
 - **Should `connectToDatabase` be split into smaller, more focused modules?**
-  _Cohesion score 0.08269394714407502 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05515151515151515 - nodes in this community are weakly interconnected._
 - **Should `package.json` be split into smaller, more focused modules?**
-  _Cohesion score 0.05555555555555555 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.043478260869565216 - nodes in this community are weakly interconnected._

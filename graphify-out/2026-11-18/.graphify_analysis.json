@@ -1,0 +1,495 @@
+{
+  "communities": {
+    "0": [
+      "app_auth_login_page",
+      "app_auth_login_page_loginpage",
+      "app_auth_reset_password_page",
+      "app_auth_reset_password_page_resetpasswordform",
+      "app_auth_reset_password_page_resetpasswordpage",
+      "app_dashboard_dashboard_announcements_page",
+      "app_dashboard_dashboard_announcements_page_announcementspage",
+      "app_dashboard_dashboard_approvals_page",
+      "app_dashboard_dashboard_approvals_page_approvalspage",
+      "app_dashboard_dashboard_departments_page",
+      "app_dashboard_dashboard_departments_page_departmentspage",
+      "app_dashboard_dashboard_guidance_page",
+      "app_dashboard_dashboard_guidance_page_guidancepage",
+      "app_dashboard_dashboard_leaderboard_page",
+      "app_dashboard_dashboard_leaderboard_page_leaderboardpage",
+      "app_dashboard_dashboard_news_create_page",
+      "app_dashboard_dashboard_news_create_page_createnewspage",
+      "app_dashboard_dashboard_news_id_edit_page",
+      "app_dashboard_dashboard_news_id_edit_page_editnewspage",
+      "app_dashboard_dashboard_news_id_page",
+      "app_dashboard_dashboard_news_id_page_newsdetailpage",
+      "app_dashboard_dashboard_news_page",
+      "app_dashboard_dashboard_news_page_newspage",
+      "app_dashboard_dashboard_page",
+      "app_dashboard_dashboard_page_admindashboard",
+      "app_dashboard_dashboard_roles_page",
+      "app_dashboard_dashboard_roles_page_role",
+      "app_dashboard_dashboard_roles_page_rolepermissions",
+      "app_dashboard_dashboard_roles_page_rolespermissionspage",
+      "app_dashboard_dashboard_suggestions_create_page",
+      "app_dashboard_dashboard_suggestions_create_page_createsuggestionpage",
+      "app_dashboard_dashboard_suggestions_id_page",
+      "app_dashboard_dashboard_suggestions_id_page_suggestiondetailpage",
+      "app_dashboard_dashboard_suggestions_page",
+      "app_dashboard_dashboard_suggestions_page_allsuggestionspage",
+      "app_dashboard_dashboard_terms_page",
+      "app_dashboard_dashboard_terms_page_dashboardtermspage",
+      "app_dashboard_dashboard_terms_page_metadata",
+      "app_dashboard_dashboard_users_page",
+      "app_dashboard_dashboard_users_page_userspage",
+      "app_dashboard_layout",
+      "app_dashboard_layout_dashboardlayout",
+      "app_terms_page",
+      "app_terms_page_award",
+      "app_terms_page_metadata",
+      "app_terms_page_termsofservicepage",
+      "components_richtexteditor",
+      "components_richtexteditor_reactquill",
+      "components_richtexteditor_richtexteditor",
+      "components_richtexteditor_richtexteditorprops",
+      "react_quill_new",
+      "ref_lucide_react",
+      "ref_react",
+      "ref_react_quill_new",
+      "ref_recharts"
+    ],
+    "1": [
+      "app_api_analytics_route",
+      "app_api_analytics_route_dynamic",
+      "app_api_auth_nextauth_route",
+      "app_api_auth_nextauth_route_handler",
+      "app_api_dashboard_stats_route",
+      "app_api_leaderboard_route",
+      "app_api_leaderboard_users_route",
+      "app_api_notifications_id_read_route",
+      "app_api_notifications_route",
+      "app_api_notifications_route_dynamic",
+      "app_api_profile_password_route",
+      "app_api_profile_route",
+      "app_api_suggestions_export_route",
+      "app_api_suggestions_id_comments_route",
+      "app_api_suggestions_id_route",
+      "app_api_suggestions_route",
+      "app_api_suggestions_route_get",
+      "app_api_upload_image_route",
+      "lib_auth",
+      "lib_auth_authoptions",
+      "lib_mongodb",
+      "models_department",
+      "models_department_departmentschema",
+      "models_department_idepartment",
+      "models_notification",
+      "models_notification_inotification",
+      "models_notification_notification",
+      "models_notification_notificationschema",
+      "models_pointlog",
+      "models_pointlog_ipointlog",
+      "models_pointlog_pointlogschema",
+      "models_suggestion",
+      "models_suggestion_isuggestion",
+      "models_suggestion_suggestion",
+      "models_suggestion_suggestionschema",
+      "models_user",
+      "models_user_iuser",
+      "models_user_userschema",
+      "ref_mongoose",
+      "ref_next_auth",
+      "scripts_delete_suggestions",
+      "scripts_delete_suggestions_clearsuggestions",
+      "scripts_reset_points",
+      "scripts_reset_points_resetpoints"
+    ],
+    "2": [
+      "app_api_analytics_route_get",
+      "app_api_auth_reset_password_route",
+      "app_api_auth_reset_password_route_post",
+      "app_api_dashboard_stats_route_get",
+      "app_api_departments_route",
+      "app_api_departments_route_delete",
+      "app_api_departments_route_get",
+      "app_api_departments_route_post",
+      "app_api_departments_route_put",
+      "app_api_leaderboard_route_get",
+      "app_api_leaderboard_users_route_get",
+      "app_api_notifications_id_read_route_patch",
+      "app_api_notifications_route_get",
+      "app_api_notifications_route_patch",
+      "app_api_profile_password_route_patch",
+      "app_api_profile_route_get",
+      "app_api_profile_route_put",
+      "app_api_roles_route",
+      "app_api_roles_route_delete",
+      "app_api_roles_route_get",
+      "app_api_roles_route_post",
+      "app_api_roles_route_put",
+      "app_api_seed_route",
+      "app_api_seed_route_get",
+      "app_api_suggestions_export_route_get",
+      "app_api_suggestions_id_comments_route_post",
+      "app_api_suggestions_id_document_route",
+      "app_api_suggestions_id_document_route_get",
+      "app_api_suggestions_id_route_get",
+      "app_api_suggestions_id_route_patch",
+      "app_api_suggestions_route_post",
+      "app_api_upload_image_route_post",
+      "app_api_users_route",
+      "app_api_users_route_delete",
+      "app_api_users_route_get",
+      "app_api_users_route_post",
+      "app_api_users_route_put",
+      "lib_mongodb_connecttodatabase",
+      "models_role",
+      "models_role_irole",
+      "models_role_role",
+      "models_role_roleschema",
+      "ref_bcryptjs"
+    ],
+    "3": [
+      "app_api_auth_forgot_password_route",
+      "app_api_auth_forgot_password_route_post",
+      "package",
+      "package_devdependencies",
+      "package_devdependencies_eslint",
+      "package_devdependencies_eslint_config_next",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_tailwindcss_postcss",
+      "package_devdependencies_types_bcryptjs",
+      "package_devdependencies_types_node",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_types_uuid",
+      "package_devdependencies_typescript",
+      "package_name",
+      "package_private",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_start",
+      "package_version",
+      "ref_eslint",
+      "ref_eslint_config_next",
+      "ref_exceljs",
+      "ref_nodemailer",
+      "ref_react_dom",
+      "ref_tailwindcss",
+      "ref_tailwindcss_postcss",
+      "ref_types_bcryptjs",
+      "ref_types_node",
+      "ref_types_nodemailer",
+      "ref_types_react",
+      "ref_types_react_dom",
+      "ref_types_uuid",
+      "ref_typescript",
+      "scripts_dump",
+      "scripts_dump_exceljs"
+    ],
+    "4": [
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_allowjs",
+      "tsconfig_compileroptions_esmoduleinterop",
+      "tsconfig_compileroptions_incremental",
+      "tsconfig_compileroptions_isolatedmodules",
+      "tsconfig_compileroptions_jsx",
+      "tsconfig_compileroptions_lib",
+      "tsconfig_compileroptions_module",
+      "tsconfig_compileroptions_moduleresolution",
+      "tsconfig_compileroptions_noemit",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_plugins",
+      "tsconfig_compileroptions_resolvejsonmodule",
+      "tsconfig_compileroptions_skiplibcheck",
+      "tsconfig_compileroptions_strict",
+      "tsconfig_compileroptions_target",
+      "tsconfig_exclude",
+      "tsconfig_include"
+    ],
+    "5": [
+      "app_api_news_id_comment_route",
+      "app_api_news_id_comment_route_post",
+      "app_api_news_id_like_route",
+      "app_api_news_id_like_route_post",
+      "app_api_news_id_route",
+      "app_api_news_id_route_delete",
+      "app_api_news_id_route_get",
+      "app_api_news_id_route_patch",
+      "app_api_news_route",
+      "app_api_news_route_get",
+      "app_api_news_route_post",
+      "models_news",
+      "models_news_inews",
+      "models_news_news",
+      "models_news_newsschema",
+      "ref_uuid"
+    ],
+    "6": [
+      "package_dependencies",
+      "package_dependencies_bcryptjs",
+      "package_dependencies_exceljs",
+      "package_dependencies_lucide_react",
+      "package_dependencies_mongoose",
+      "package_dependencies_next",
+      "package_dependencies_next_auth",
+      "package_dependencies_nodemailer",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_react_quill_new",
+      "package_dependencies_recharts",
+      "package_dependencies_types_nodemailer",
+      "package_dependencies_uuid",
+      "package_dependencies_xlsx"
+    ],
+    "7": [
+      "app_api_announcements_id_route",
+      "app_api_announcements_id_route_delete",
+      "app_api_announcements_id_route_patch",
+      "app_api_announcements_route",
+      "app_api_announcements_route_dynamic",
+      "app_api_announcements_route_get",
+      "app_api_announcements_route_post",
+      "models_announcement",
+      "models_announcement_announcement",
+      "models_announcement_announcementschema",
+      "models_announcement_iannouncement"
+    ],
+    "8": [
+      "app_layout",
+      "app_layout_inter",
+      "app_layout_lexend",
+      "app_layout_metadata",
+      "app_layout_rootlayout",
+      "components_providers",
+      "components_providers_providers",
+      "next_config",
+      "next_config_nextconfig",
+      "ref_next"
+    ],
+    "9": [
+      "ref_xlsx",
+      "scripts_read_template",
+      "scripts_read_template_detail",
+      "scripts_read_template_detail_filepath",
+      "scripts_read_template_detail_workbook",
+      "scripts_read_template_filepath",
+      "scripts_read_template_workbook"
+    ],
+    "10": [
+      "scripts_create_god",
+      "scripts_create_god_bcrypt",
+      "scripts_create_god_creategodaccount",
+      "scripts_create_god_envpath",
+      "scripts_create_god_fs",
+      "scripts_create_god_mongoose",
+      "scripts_create_god_path"
+    ],
+    "11": [
+      "app_dashboard_dashboard_profile_page",
+      "app_dashboard_dashboard_profile_page_profilepage",
+      "types_profile",
+      "types_profile_permissions",
+      "types_profile_profile",
+      "types_profile_role"
+    ],
+    "12": [
+      "types_next_auth_d",
+      "types_next_auth_d_jwt",
+      "types_next_auth_d_next_auth",
+      "types_next_auth_d_next_auth_jwt",
+      "types_next_auth_d_session",
+      "types_next_auth_d_user"
+    ],
+    "13": [
+      "app_dashboard_dashboard_settings_page",
+      "app_dashboard_dashboard_settings_page_settingspage",
+      "components_templates_coomingsoon",
+      "components_templates_coomingsoon_coomingsoon"
+    ],
+    "14": [
+      "app_page",
+      "app_page_home"
+    ],
+    "15": [
+      "eslint_config",
+      "eslint_config_eslintconfig"
+    ],
+    "16": [
+      "middleware",
+      "middleware_config"
+    ],
+    "17": [
+      "postcss_config",
+      "postcss_config_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.050505050505050504,
+    "1": 0.13002114164904863,
+    "2": 0.07308970099667775,
+    "3": 0.05263157894736842,
+    "4": 0.10526315789473684,
+    "5": 0.175,
+    "6": 0.13333333333333333,
+    "7": 0.21818181818181817,
+    "8": 0.2222222222222222,
+    "9": 0.2857142857142857,
+    "10": 0.2857142857142857,
+    "11": 0.4,
+    "12": 0.3333333333333333,
+    "13": 0.6666666666666666,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0
+  },
+  "gods": [
+    {
+      "id": "lib_mongodb_connecttodatabase",
+      "label": "connectToDatabase()",
+      "degree": 71
+    },
+    {
+      "id": "ref_react",
+      "label": "react",
+      "degree": 24
+    },
+    {
+      "id": "lib_auth_authoptions",
+      "label": "authOptions",
+      "degree": 24
+    },
+    {
+      "id": "ref_next_auth",
+      "label": "next-auth",
+      "degree": 22
+    },
+    {
+      "id": "ref_lucide_react",
+      "label": "lucide-react",
+      "degree": 20
+    },
+    {
+      "id": "tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 16
+    },
+    {
+      "id": "ref_mongoose",
+      "label": "mongoose",
+      "degree": 13
+    },
+    {
+      "id": "models_role_role",
+      "label": "Role",
+      "degree": 9
+    },
+    {
+      "id": "models_suggestion_suggestion",
+      "label": "Suggestion",
+      "degree": 8
+    },
+    {
+      "id": "ref_bcryptjs",
+      "label": "bcryptjs",
+      "degree": 7
+    }
+  ],
+  "surprises": [
+    {
+      "source": "DELETE()",
+      "target": "connectToDatabase()",
+      "source_files": [
+        "app/api/announcements/[id]/route.ts",
+        "lib/mongodb.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `DELETE()` unexpectedly reaches hub `connectToDatabase()`"
+    },
+    {
+      "source": "PATCH()",
+      "target": "connectToDatabase()",
+      "source_files": [
+        "app/api/announcements/[id]/route.ts",
+        "lib/mongodb.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `PATCH()` unexpectedly reaches hub `connectToDatabase()`"
+    },
+    {
+      "source": "GET()",
+      "target": "connectToDatabase()",
+      "source_files": [
+        "app/api/announcements/route.ts",
+        "lib/mongodb.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `GET()` unexpectedly reaches hub `connectToDatabase()`"
+    },
+    {
+      "source": "POST()",
+      "target": "connectToDatabase()",
+      "source_files": [
+        "app/api/announcements/route.ts",
+        "lib/mongodb.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `POST()` unexpectedly reaches hub `connectToDatabase()`"
+    },
+    {
+      "source": "POST()",
+      "target": "connectToDatabase()",
+      "source_files": [
+        "app/api/auth/forgot-password/route.ts",
+        "lib/mongodb.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities; peripheral node `POST()` unexpectedly reaches hub `connectToDatabase()`"
+    }
+  ],
+  "questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `next-auth` connect `Community 1` to `Community 3`, `Community 12`, `Community 5`, `Community 7`?",
+      "why": "High betweenness centrality (0.207) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `react` connect `Community 0` to `Community 8`, `Community 3`, `Community 11`?",
+      "why": "High betweenness centrality (0.188) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `mongoose` connect `Community 1` to `Community 2`, `Community 3`, `Community 5`, `Community 7`, `Community 10`?",
+      "why": "High betweenness centrality (0.143) - this node is a cross-community bridge."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Role`, `RolePermissions`, `RichTextEditorProps` to the rest of the system?",
+      "why": "109 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 0` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.050505050505050504 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 1` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.13002114164904863 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `Community 2` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07308970099667775 - nodes in this community are weakly interconnected."
+    }
+  ]
+}

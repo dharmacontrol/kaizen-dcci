@@ -34,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const { data: session } = useSession();
 
   useEffect(() => {
@@ -50,11 +51,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .catch(console.error);
       };
 
+      const fetchCounts = () => {
+        fetch("/api/suggestions/counts", { cache: "no-store" })
+          .then(res => res.json())
+          .then(data => setPendingApprovalsCount(data.pendingApprovals || 0))
+          .catch(console.error);
+      };
+
       // Fetch immediately
       fetchNotifications();
+      fetchCounts();
 
       // Poll every 10 seconds
-      const intervalId = setInterval(fetchNotifications, 10000);
+      const intervalId = setInterval(() => {
+        fetchNotifications();
+        fetchCounts();
+      }, 10000);
       return () => clearInterval(intervalId);
     }
   }, [session]);
@@ -99,7 +111,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: "Roles & Permissions", href: "/dashboard/roles", icon: Shield, show: session?.user?.permissions?.canManageSystem ?? false },
     { name: "Guidance", href: "/dashboard/guidance", icon: BookOpen, show: true },
     { name: "Terms of Service", href: "/dashboard/terms", icon: Scale, show: session?.user?.permissions?.canViewTerms ?? true },
-  ].filter(link => link.show);
+  ]
+    .filter(link => link.show)
+    .map(link => ({
+      ...link,
+      badge: link.name === "Approvals" ? pendingApprovalsCount : 0,
+    }));
+
+  const canCreateSuggestions = session?.user?.permissions?.canCreateSuggestions ?? true;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
@@ -109,16 +128,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         DESKTOP SIDEBAR
         ========================================================================
       */}
-      <aside className={`hidden md:flex flex-col bg-white border-r border-gray-200 sticky top-0 h-screen transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-        <div className="h-16 flex items-center justify-center md:justify-start px-6 border-b border-gray-100 overflow-hidden shrink-0">
-          <div className={`relative h-8 shrink-0 transition-all duration-300 ${sidebarOpen ? 'w-32' : 'w-8'}`}>
+      <aside className={`hidden md:flex flex-col bg-primary border-r border-black/10 sticky top-0 h-screen transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+        <div className={`h-16 flex items-center justify-center md:justify-start border-b border-white/10 overflow-hidden shrink-0 ${sidebarOpen ? 'px-4' : 'px-3'}`}>
+          <div className={`relative h-9 bg-white rounded-lg shadow-sm p-1.5 shrink-0 transition-all duration-300 ${sidebarOpen ? 'w-[140px]' : 'w-9'}`}>
             <Image src="/assets/logo.png" alt="DCCI Logo" fill className={`object-contain ${sidebarOpen ? 'object-left' : 'object-center'}`} />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-6 overflow-x-hidden">
+        <div className="flex-1 overflow-y-auto py-5 overflow-x-hidden">
+          {canCreateSuggestions && (
+            <div className={`px-3 pb-5 ${!sidebarOpen && 'flex justify-center'}`}>
+              <Link
+                href="/dashboard/suggestions/create"
+                className={`flex items-center bg-white text-primary font-bold rounded-xl shadow-sm hover:bg-indigo-50 transition-colors ${
+                  sidebarOpen ? 'w-full justify-center gap-2 px-4 py-2.5' : 'w-11 h-11 justify-center'
+                }`}
+                title={!sidebarOpen ? "Buat Suggestion" : undefined}
+              >
+                <MessageSquarePlus className="w-5 h-5 shrink-0" />
+                {sidebarOpen && <span className="text-sm whitespace-nowrap">Buat Suggestion</span>}
+              </Link>
+            </div>
+          )}
+
           {sidebarOpen && (
-            <div className="px-5 mb-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
+            <div className="px-5 mb-2 text-[11px] font-bold text-white/40 uppercase tracking-widest whitespace-nowrap">
               Menu
             </div>
           )}
@@ -129,25 +163,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link
                   key={link.name}
                   href={link.href}
-                  className={`flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                    isActive 
-                      ? "bg-primary/10 text-primary font-medium" 
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                  className={`relative flex items-center px-3 py-2.5 rounded-xl transition-all duration-200 ${
+                    isActive
+                      ? "bg-white text-primary font-semibold shadow-sm"
+                      : "text-indigo-100/70 hover:bg-white/10 hover:text-white"
                   } ${!sidebarOpen && 'justify-center'}`}
                   title={!sidebarOpen ? link.name : undefined}
                 >
-                  <link.icon className={`w-5 h-5 shrink-0 ${isActive ? "text-primary" : "text-gray-400"} ${sidebarOpen && 'mr-3'}`} />
+                  <link.icon className={`w-5 h-5 shrink-0 ${isActive ? "text-primary" : "text-indigo-200/60"} ${sidebarOpen && 'mr-3'}`} />
                   {sidebarOpen && <span className="whitespace-nowrap">{link.name}</span>}
+                  {!!link.badge && link.badge > 0 && (
+                    <span className="absolute top-1 right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none shadow-sm">
+                      {link.badge > 99 ? '99+' : link.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
           </nav>
         </div>
 
-        <div className="p-4 border-t border-gray-100 overflow-hidden shrink-0">
-          <button 
+        <div className="p-4 border-t border-white/10 overflow-hidden shrink-0">
+          <button
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className={`w-full flex items-center px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-50 transition-all duration-200 ${!sidebarOpen && 'justify-center'}`} 
+            className={`w-full flex items-center px-3 py-2.5 rounded-xl text-red-200 hover:bg-white/10 hover:text-red-100 transition-all duration-200 ${!sidebarOpen && 'justify-center'}`}
             title={!sidebarOpen ? "Sign Out" : undefined}
           >
             <LogOut className={`w-5 h-5 shrink-0 ${sidebarOpen && 'mr-3'}`} />
@@ -381,14 +420,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       key={link.name}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
-                        isActive 
-                          ? "bg-primary/10 text-primary font-bold" 
+                      className={`relative flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
+                        isActive
+                          ? "bg-primary/10 text-primary font-bold"
                           : "text-gray-600 hover:bg-gray-50 font-medium"
                       }`}
                     >
                       <link.icon className={`w-5 h-5 mr-4 ${isActive ? "text-primary" : "text-gray-400"}`} />
-                      {link.name}
+                      <span className="flex-1">{link.name}</span>
+                      {!!link.badge && link.badge > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none">
+                          {link.badge > 99 ? '99+' : link.badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
