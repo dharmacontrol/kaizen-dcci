@@ -130,8 +130,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const mainNavLinks = navLinks.filter(link => !ADMIN_LINK_NAMES.includes(link.name));
   const adminNavLinks = navLinks.filter(link => ADMIN_LINK_NAMES.includes(link.name));
 
-  const canCreateSuggestions = session?.user?.permissions?.canCreateSuggestions ?? true;
-
   const currentPageTitle = navLinks.find(link => isLinkActive(link.href))?.name || "Dashboard";
   const todayLabel = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -204,15 +202,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </button>
 
         <div className={`h-16 flex items-center shrink-0 border-b border-white/10 ${sidebarOpen ? 'px-5 justify-start' : 'px-0 justify-center'}`}>
-          <div className={`inline-flex items-center bg-white rounded-xl shadow-md shrink-0 overflow-hidden ${sidebarOpen ? 'px-3.5 py-2.5' : 'w-10 h-10 justify-start pl-2'}`}>
+          {sidebarOpen ? (
             <Image
-              src="/assets/logo.png"
+              src="/assets/logo_for_dark_trimmed.png"
               alt="DCCI"
-              width={320}
-              height={61}
-              className={sidebarOpen ? 'h-6 w-auto' : 'h-7 w-auto'}
+              width={1244}
+              height={164}
+              className="h-7 w-auto"
             />
-          </div>
+          ) : (
+            <div className="w-10 h-7 overflow-hidden shrink-0">
+              <Image src="/assets/logo_for_dark_trimmed.png" alt="DCCI" width={1244} height={164} className="h-7 w-auto" />
+            </div>
+          )}
         </div>
 
         {/* User identity — the person using the panel, front and center under the logo */}
@@ -221,23 +223,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden py-3">
-          {canCreateSuggestions && (
-            <div className={`px-3 pb-4 ${!sidebarOpen && 'flex justify-center'}`}>
-              <Link
-                href="/dashboard/suggestions/create"
-                className={`flex items-center bg-white rounded-xl shadow-md hover:shadow-lg hover:-translate-y-px transition-all ${
-                  sidebarOpen ? 'w-full gap-3 pl-2 pr-4 py-2' : 'w-11 h-11 justify-center'
-                }`}
-                title={!sidebarOpen ? "Buat Suggestion" : undefined}
-              >
-                <span className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                  <MessageSquarePlus className="w-4 h-4 text-white" />
-                </span>
-                {sidebarOpen && <span className="text-sm font-bold text-primary whitespace-nowrap">Buat Suggestion</span>}
-              </Link>
-            </div>
-          )}
-
           <nav className="px-3 space-y-0.5">
             {mainNavLinks.map(link => renderNavLink(link, "desktop"))}
           </nav>
@@ -471,9 +456,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Drawer Header */}
             <div className="h-16 flex items-center justify-between px-5 border-b border-white/10 shrink-0">
-              <div className="inline-flex items-center bg-white rounded-xl shadow-md px-3.5 py-2.5 shrink-0">
-                <Image src="/assets/logo.png" alt="DCCI" width={320} height={61} className="h-6 w-auto" />
-              </div>
+              <Image src="/assets/logo_for_dark_trimmed.png" alt="DCCI" width={1244} height={164} className="h-6 w-auto" />
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-1.5 bg-white/10 text-slate-400 hover:text-white rounded-full transition-colors"
@@ -486,22 +469,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="px-3 py-3 border-b border-white/10 shrink-0">
               {userIdentityCard(false)}
             </div>
-
-            {/* Create Suggestion CTA */}
-            {canCreateSuggestions && (
-              <div className="px-3 pt-4">
-                <Link
-                  href="/dashboard/suggestions/create"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 bg-white rounded-xl shadow-md pl-2 pr-4 py-2 w-full"
-                >
-                  <span className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                    <MessageSquarePlus className="w-4 h-4 text-white" />
-                  </span>
-                  <span className="text-sm font-bold text-primary">Buat Suggestion</span>
-                </Link>
-              </div>
-            )}
 
             {/* Drawer Links */}
             <div className="flex-1 overflow-y-auto py-3">
