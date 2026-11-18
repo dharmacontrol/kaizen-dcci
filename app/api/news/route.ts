@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const isAdmin = session.user.role === "Admin" || session.user.permissions?.canManageSystem || session.user.permissions?.canManageNews;
     const fetchAll = searchParams.get("all") === "true" && isAdmin;
 
-    const query = fetchAll ? {} : { status: "Published" };
+    const query = fetchAll ? {} : { status: "Published" as const };
 
     const news = await News.find(query)
       .populate("author", "name nik profilePicture")

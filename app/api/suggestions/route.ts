@@ -2,15 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import connectToDatabase from "@/lib/mongodb";
-import Suggestion from "@/models/Suggestion";
+import Suggestion, { ISuggestion } from "@/models/Suggestion";
 import User from "@/models/User";
 import Department from "@/models/Department";
 import Role from "@/models/Role";
 import Notification from "@/models/Notification";
 import PointLog from "@/models/PointLog";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { existsSync } from "fs";
+import { saveSuggestionImage, validateSuggestionImage } from "@/lib/suggestionUploads";
+import { buildMonthlyQuotaQuery } from "@/lib/suggestionQuota";
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,9 +22,13 @@ export async function GET(req: NextRequest) {
     
     // Role-based filtering:
     // If the user is an Employee, they can only see their own suggestions.
-    // Managers/Admins can see all suggestions.
+    // Managers/Admins can see all suggestions, EXCEPT other users' Drafts —
+    // Drafts are private scratch work and must not leak to anyone but their
+    // author, regardless of role.
     if (session.user.role === "Employee") {
       query = { author: session.user.id };
+    } else {
+      query = { $or: [{ status: { $ne: "Draft" } }, { author: session.user.id }] };
     }
 
     const suggestions = await Suggestion.find(query)
@@ -48,56 +51,110 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    
+
+    const statusField = formData.get("status");
+    const status = statusField === null ? "Pending" : (statusField as string);
+    if (status !== "Draft" && status !== "Pending") {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
     const title = formData.get("title") as string;
     const problem = formData.get("problem") as string;
     const solution = formData.get("solution") as string;
-    const category = formData.get("category") as string;
+    const category = formData.get("category") as ISuggestion["category"];
     const departmentId = formData.get("department") as string;
     const costEffectiveExplanation = formData.get("costEffectiveExplanation") as string;
     const costEffectiveNominal = formData.get("costEffectiveNominal") as string;
-    
-    if (!title || !problem || !solution || !category || !departmentId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+
+    if (status === "Pending") {
+      if (!title || !problem || !solution || !category || !departmentId) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
+    } else {
+      if (!title) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
     }
 
     const beforeImage = formData.get("beforeImage") as File | null;
     const afterImage = formData.get("afterImage") as File | null;
+    const additionalImagesRaw = formData.getAll("additionalImages");
+    const additionalImages = additionalImagesRaw.filter(
+      (f): f is File => f instanceof File && f.size > 0
+    );
+
+    if (additionalImages.length > 3) {
+      return NextResponse.json({ error: "Maximum of 3 additional images allowed" }, { status: 400 });
+    }
+
+    const imagesToValidate = [beforeImage, afterImage, ...additionalImages].filter(
+      (f): f is File => !!f && f.size > 0
+    );
+
+    for (const file of imagesToValidate) {
+      const validationError = validateSuggestionImage(file);
+      if (validationError) {
+        return NextResponse.json({ error: validationError }, { status: 400 });
+      }
+    }
 
     let beforeImagePath = "";
     let afterImagePath = "";
+    const additionalImagePaths: string[] = [];
 
-    const uploadDir = path.join(process.cwd(), "public/uploads");
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
+    try {
+      if (beforeImage && beforeImage.size > 0) {
+        beforeImagePath = await saveSuggestionImage(beforeImage);
+      }
 
-    if (beforeImage && beforeImage.size > 0) {
-      const buffer = Buffer.from(await beforeImage.arrayBuffer());
-      const filename = `${Date.now()}-before-${beforeImage.name.replace(/\s+/g, '-')}`;
-      await writeFile(path.join(uploadDir, filename), buffer);
-      beforeImagePath = `/uploads/${filename}`;
-    }
+      if (afterImage && afterImage.size > 0) {
+        afterImagePath = await saveSuggestionImage(afterImage);
+      }
 
-    if (afterImage && afterImage.size > 0) {
-      const buffer = Buffer.from(await afterImage.arrayBuffer());
-      const filename = `${Date.now()}-after-${afterImage.name.replace(/\s+/g, '-')}`;
-      await writeFile(path.join(uploadDir, filename), buffer);
-      afterImagePath = `/uploads/${filename}`;
+      for (const file of additionalImages) {
+        additionalImagePaths.push(await saveSuggestionImage(file));
+      }
+    } catch (err) {
+      return NextResponse.json({ error: "File bukan gambar yang valid" }, { status: 400 });
     }
 
     await connectToDatabase();
+
+    if (status === "Draft") {
+      const newSuggestion = await Suggestion.create({
+        title,
+        problem: problem || undefined,
+        solution: solution || undefined,
+        category: category || undefined,
+        costEffective: {
+          explanation: costEffectiveExplanation || "",
+          nominal: costEffectiveNominal ? Number(costEffectiveNominal) : 0,
+        },
+        images: {
+          before: beforeImagePath,
+          after: afterImagePath,
+          additional: additionalImagePaths,
+        },
+        status: "Draft",
+        author: session.user.id,
+        department: departmentId || undefined,
+        pointsAwarded: 0,
+      });
+
+      return NextResponse.json(newSuggestion, { status: 201 });
+    }
 
     const now = new Date();
     const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    // Validate max 5 suggestions per month
-    const currentMonthSuggestions = await Suggestion.countDocuments({
-      author: session.user.id,
-      createdAt: { $gte: startOfMonth, $lte: endOfMonth }
-    });
+    // Validate max 5 suggestions per month. Counted by submittedAt (falling
+    // back to createdAt only when submittedAt doesn't exist), not createdAt
+    // alone — see lib/suggestionQuota.ts for why.
+    const currentMonthSuggestions = await Suggestion.countDocuments(
+      buildMonthlyQuotaQuery(session.user.id, startOfMonth, endOfMonth)
+    );
 
     if (currentMonthSuggestions >= 5) {
       return NextResponse.json({ error: "Anda telah mencapai batas maksimal 5 usulan untuk periode bulan ini." }, { status: 400 });
@@ -118,8 +175,10 @@ export async function POST(req: NextRequest) {
       images: {
         before: beforeImagePath,
         after: afterImagePath,
+        additional: additionalImagePaths,
       },
       status: "Pending",
+      submittedAt: now,
       author: session.user.id,
       department: departmentId,
       pointsAwarded: participationPoints, // Initial points for submitting
@@ -147,10 +206,10 @@ export async function POST(req: NextRequest) {
     // Notify users with canManageSuggestions
     const managerRoles = await Role.find({ "permissions.canManageSuggestions": true }).select("_id");
     const managerRoleIds = managerRoles.map(r => r._id);
-    
+
     if (managerRoleIds.length > 0) {
       const managers = await User.find({ role: { $in: managerRoleIds } }).select("_id");
-      
+
       const notifications = managers.map(manager => ({
         recipient: manager._id,
         type: "INFO",
