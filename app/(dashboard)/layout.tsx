@@ -132,30 +132,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className={`hidden md:flex flex-col sticky top-0 h-screen shadow-[4px_0_24px_rgba(0,0,0,0.08)] transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}
         style={{ background: "linear-gradient(185deg, #14103F 0%, #1C176F 100%)" }}
       >
-        <div className={`h-16 flex items-center shrink-0 ${sidebarOpen ? 'px-5 justify-start' : 'px-0 justify-center'}`}>
-          <div className={`inline-flex items-center bg-white rounded-lg shadow-sm shrink-0 overflow-hidden ${sidebarOpen ? 'px-3 py-2' : 'w-9 h-9 justify-start pl-1.5'}`}>
+        <div className={`h-16 flex items-center shrink-0 border-b border-white/10 ${sidebarOpen ? 'px-5 justify-start' : 'px-0 justify-center'}`}>
+          <div className={`inline-flex items-center bg-white rounded-xl shadow-md shrink-0 overflow-hidden ${sidebarOpen ? 'px-3.5 py-2.5' : 'w-10 h-10 justify-start pl-2'}`}>
             <Image
               src="/assets/logo.png"
               alt="DCCI"
               width={320}
               height={61}
-              className={sidebarOpen ? 'h-[22px] w-auto' : 'h-[26px] w-auto'}
+              className={sidebarOpen ? 'h-6 w-auto' : 'h-7 w-auto'}
             />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {canCreateSuggestions && (
-            <div className={`px-3 pt-2 pb-5 ${!sidebarOpen && 'flex justify-center'}`}>
+            <div className={`px-3 pt-4 pb-5 ${!sidebarOpen && 'flex justify-center'}`}>
               <Link
                 href="/dashboard/suggestions/create"
-                className={`flex items-center bg-white text-primary font-bold rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.25)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:-translate-y-px transition-all ${
-                  sidebarOpen ? 'w-full justify-center gap-2 px-4 py-2.5' : 'w-11 h-11 justify-center'
+                className={`flex items-center bg-white rounded-xl shadow-md hover:shadow-lg hover:-translate-y-px transition-all ${
+                  sidebarOpen ? 'w-full gap-3 pl-2 pr-4 py-2' : 'w-11 h-11 justify-center'
                 }`}
                 title={!sidebarOpen ? "Buat Suggestion" : undefined}
               >
-                <MessageSquarePlus className="w-5 h-5 shrink-0" />
-                {sidebarOpen && <span className="text-sm whitespace-nowrap">Buat Suggestion</span>}
+                <span className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                  <MessageSquarePlus className="w-4 h-4 text-white" />
+                </span>
+                {sidebarOpen && <span className="text-sm font-bold text-primary whitespace-nowrap">Buat Suggestion</span>}
               </Link>
             </div>
           )}
@@ -415,27 +417,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ></div>
           
           {/* Drawer */}
-          <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300 border-r border-gray-100">
-            
+          <div
+            className="relative w-72 max-w-[80vw] h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300"
+            style={{ background: "linear-gradient(185deg, #14103F 0%, #1C176F 100%)" }}
+          >
+
             {/* Drawer Header */}
-            <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 shrink-0">
-              <div className="relative h-8 w-32 shrink-0">
-                <Image src="/assets/logo.png" alt="DCCI Logo" fill className="object-contain object-left" />
+            <div className="h-16 flex items-center justify-between px-5 border-b border-white/10 shrink-0">
+              <div className="inline-flex items-center bg-white rounded-xl shadow-md px-3.5 py-2.5 shrink-0">
+                <Image src="/assets/logo.png" alt="DCCI" width={320} height={61} className="h-6 w-auto" />
               </div>
-              <button 
-                onClick={() => setMobileMenuOpen(false)} 
-                className="p-1.5 bg-gray-50 text-gray-400 hover:text-gray-600 rounded-full transition-colors"
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 bg-white/10 text-indigo-200/70 hover:text-white rounded-full transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
-            {/* Drawer Links */}
-            <div className="flex-1 overflow-y-auto py-6">
-              <div className="px-6 mb-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                Menu
+
+            {/* Create Suggestion CTA */}
+            {canCreateSuggestions && (
+              <div className="px-4 pt-4">
+                <Link
+                  href="/dashboard/suggestions/create"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 bg-white rounded-xl shadow-md pl-2 pr-4 py-2 w-full"
+                >
+                  <span className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                    <MessageSquarePlus className="w-4 h-4 text-white" />
+                  </span>
+                  <span className="text-sm font-bold text-primary">Buat Suggestion</span>
+                </Link>
               </div>
-              <nav className="px-4 space-y-1">
+            )}
+
+            {/* Drawer Links */}
+            <div className="flex-1 overflow-y-auto py-4">
+              <nav className="px-3 space-y-0.5">
                 {navLinks.map((link) => {
                   const isActive = link.href === "/dashboard"
                     ? pathname === "/dashboard"
@@ -445,14 +463,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       key={link.name}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`relative flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
-                        isActive
-                          ? "bg-primary/10 text-primary font-bold"
-                          : "text-gray-600 hover:bg-gray-50 font-medium"
+                      className={`relative flex items-center h-11 pl-4 pr-3 rounded-lg transition-colors duration-150 ${
+                        isActive ? "text-white font-semibold" : "text-indigo-200/60 hover:text-white"
                       }`}
                     >
-                      <link.icon className={`w-5 h-5 mr-4 ${isActive ? "text-primary" : "text-gray-400"}`} />
-                      <span className="flex-1">{link.name}</span>
+                      {isActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-full bg-white" />
+                      )}
+                      <link.icon className={`w-[18px] h-[18px] mr-3 shrink-0 ${isActive ? "text-white" : "text-indigo-300/50"}`} />
+                      <span className="flex-1 text-sm">{link.name}</span>
                       {!!link.badge && link.badge > 0 && (
                         <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none">
                           {link.badge > 99 ? '99+' : link.badge}
@@ -465,13 +484,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* Drawer Bottom Actions */}
-            <div className="p-6 border-t border-gray-100 shrink-0">
-              <button 
+            <div className="p-3 shrink-0 space-y-1">
+              <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
+                <div className="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center font-bold text-xs font-display shrink-0">
+                  {(session?.user?.name || "?").split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{session?.user?.name || "..."}</p>
+                  <p className="text-xs text-indigo-300/60 truncate">{session?.user?.role || ""}</p>
+                </div>
+              </div>
+              <button
                 onClick={() => signOut({ callbackUrl: '/login' })}
-                className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors font-bold"
+                className="w-full flex items-center h-11 pl-4 pr-3 rounded-lg text-indigo-200/60 hover:bg-white/5 hover:text-red-300 transition-colors duration-150"
               >
-                <LogOut className="w-5 h-5" />
-                <span>Sign Out</span>
+                <LogOut className="w-[18px] h-[18px] mr-3 shrink-0" />
+                <span className="text-sm">Sign Out</span>
               </button>
             </div>
 
